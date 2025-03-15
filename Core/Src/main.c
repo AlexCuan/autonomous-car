@@ -47,7 +47,8 @@ TIM_HandleTypeDef htim3;
 TIM_HandleTypeDef htim4;
 
 /* USER CODE BEGIN PV */
-
+unsigned short DC_RIGHT;
+unsigned short DC_LEFT;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -64,7 +65,54 @@ static void MX_TIM4_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+void set_speed(unsigned short dc_right, unsigned short dc_left){
+	DC_RIGHT = dc_right;
+	DC_LEFT = dc_left;
+}
+void setup_wheels(){
 
+	  GPIOB -> MODER  |= (1 << (11*2+1));
+	  GPIOB -> MODER &= ~(1 << 11*2);
+	  GPIOB->AFR[1] &= ~(0xF << 12);
+	  GPIOB->AFR[1] |= (1 << 12);
+
+	  GPIOB->MODER |= (1 << (10*2+1));  // Poner bit 21 en 1
+	  GPIOB->MODER &= ~(1 << (10*2));    // Poner bit 20 en 0
+	  GPIOB->AFR[1] &= ~(0xF << 8);
+	  GPIOB->AFR[1] |= (1 << 8);
+
+	  GPIOB -> MODER &= ~(1 << (13*2+1));
+	  GPIOB -> MODER |= (1 << 13*2);
+
+
+	  GPIOB -> MODER &= ~(1 << (12*2+1));
+	  GPIOB -> MODER |= (1 << 12*2);
+
+
+}
+
+void setup_pwm(){
+
+  TIM2->CR1 = 0x0080; // ARPE = 1 -> Is PWM; CEN = 0; Counter OFF
+  TIM2->CR2 = 0x0000; // Always 0 in this course
+  TIM2->SMCR = 0x0000; // Always 0 in this course
+  TIM2->PSC = 32000; // Pre-scaler=32000 -> f_counter=32000000/32000 = 1000 steps/second
+  TIM2->CNT = 0; // Initialize counter to 0
+  TIM2->ARR = 99;   // 100 niveles (0-99) -> 100 Hz PWM con 1% de resolución
+  TIM2->CCR3 = DC_LEFT;  // 50% duty cycle
+  TIM2->CCR4 = DC_RIGHT;
+  TIM2->DIER = 0x0000; // No IRQ when counting is finished -> CCyIE = 0
+  // Output mode
+  TIM2->CCMR2 = 0x6868; // CCyS = 0 (TOC, PWM)
+  // OCyM = 110 (PWM starting in 1)
+  // OCyPE = 1 (with preload)
+  TIM2->CCER = 0x1100; // CCyP = 0 (always in PWM)
+  // CCyE = 1 (hardware output activated)
+  // Counter enabling
+  TIM2->CR1 |= 0x0001; // CEN = 1 -> Start counter
+  TIM2->EGR |= 0x0001; // UG = 1 -> Generate update event
+  TIM2->SR = 0; // Counter flags cleared
+}
 /* USER CODE END 0 */
 
 /**
@@ -102,59 +150,15 @@ int main(void)
   MX_TIM3_Init();
   MX_TIM4_Init();
   /* USER CODE BEGIN 2 */
-	void move_forward(){
 
 
 
 
-		  GPIOB -> MODER  |= (1 << (11*2+1));
-		  GPIOB -> MODER &= ~(1 << 11*2);
-		  GPIOB->AFR[1] &= ~(0xF << 12);
-		  GPIOB->AFR[1] |= (1 << 12);
 
-		  GPIOB->MODER |= (1 << (10*2+1));  // Poner bit 21 en 1
-		  GPIOB->MODER &= ~(1 << (10*2));    // Poner bit 20 en 0
-		  GPIOB->AFR[1] &= ~(0xF << 8);
-		  GPIOB->AFR[1] |= (1 << 8);
+  set_speed(0,0);
+  setup_wheels();
+  setup_pwm();
 
-
-
-	}
-
-void setup_pwm(){
-
-	  TIM2->CR1 = 0x0080; // ARPE = 1 -> Is PWM; CEN = 0; Counter OFF
-	  TIM2->CR2 = 0x0000; // Always 0 in this course
-	  TIM2->SMCR = 0x0000; // Always 0 in this course
-	  TIM2->PSC = 32000; // Pre-scaler=32000 -> f_counter=32000000/32000 = 1000 steps/second
-	  TIM2->CNT = 0; // Initialize counter to 0
-	  TIM2->ARR = 99;   // 100 niveles (0-99) -> 100 Hz PWM con 1% de resolución
-	  TIM2->CCR3 = 20;  // 50% duty cycle
-	  TIM2->CCR4 = 50;
-	  TIM2->DIER = 0x0000; // No IRQ when counting is finished -> CCyIE = 0
-	  // Output mode
-	  TIM2->CCMR2 = 0x6868; // CCyS = 0 (TOC, PWM)
-	  // OCyM = 110 (PWM starting in 1)
-	  // OCyPE = 1 (with preload)
-	  TIM2->CCER = 0x1100; // CCyP = 0 (always in PWM)
-	  // CCyE = 1 (hardware output activated)
-	  // Counter enabling
-	  TIM2->CR1 |= 0x0001; // CEN = 1 -> Start counter
-	  TIM2->EGR |= 0x0001; // UG = 1 -> Generate update event
-	  TIM2->SR = 0; // Counter flags cleared
-}
-
-
-
-GPIOB -> MODER &= ~(1 << (13*2+1));
-GPIOB -> MODER |= (1 << 13*2);
-
-
-  GPIOB -> MODER &= ~(1 << (12*2+1));
-  GPIOB -> MODER |= (1 << 12*2);
-
-//  move_forward();
-//  setup_pwm();
 //  GPIOB->BSRR = (1 << 12);
 
   /* USER CODE END 2 */
