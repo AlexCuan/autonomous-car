@@ -94,18 +94,20 @@ void set_speed(unsigned short dc_right, unsigned short dc_left) {
 
 void turn_direction() {
 	if (movement_direction == FORWARD) {
+		MAX_DC = 0;
 		GPIOB->BSRR = (1 << 13);
 		GPIOB->BSRR = (1 << 12);
+		set_speed(MAX_DC, MAX_DC);
 		movement_direction = BACKWARDS;
-		MAX_DC = 0;
 	} else if (movement_direction == BACKWARDS) {
+		MAX_DC = 100;
 		set_speed(MAX_DC, MAX_DC);
 		movement_direction = STOPPED;
 	} else if (movement_direction == STOPPED) {
 		GPIOB->BSRR = (1 << 13) << 16;
 		GPIOB->BSRR = (1 << 12) << 16;
 		movement_direction = FORWARD;
-		MAX_DC=100;
+		MAX_DC = 100;
 	}
 }
 void setup_wheels() {
@@ -399,11 +401,12 @@ int main(void) {
 	START_COUNTER_2();
 	setup_wheels();
 
-
 	setup_pwm();
-
+	turn_direction();
+	turn_direction();
 	turn_direction();
 
+//	turn_direction();
 
 //  GPIOB->BSRR = (1 << 12);
 
