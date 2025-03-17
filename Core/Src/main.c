@@ -48,6 +48,7 @@ TIM_HandleTypeDef htim3;
 TIM_HandleTypeDef htim4;
 
 /* USER CODE BEGIN PV */
+unsigned short MAX_DC = 100;
 unsigned short DC_RIGHT;
 unsigned short DC_LEFT;
 
@@ -62,6 +63,11 @@ unsigned short distance_u2;
 bool close;
 bool too_close;
 bool estado;
+
+enum direction {
+	FORWARD, BACKWARDS, STOPPED
+};
+enum direction movement_direction = FORWARD;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -81,6 +87,26 @@ static void MX_TIM4_Init(void);
 void set_speed(unsigned short dc_right, unsigned short dc_left) {
 	DC_RIGHT = dc_right;
 	DC_LEFT = dc_left;
+	TIM2->CCR3 = DC_LEFT;
+	TIM2->CCR4 = DC_RIGHT;
+
+}
+
+void turn_direction() {
+	if (movement_direction == FORWARD) {
+		GPIOB->BSRR = (1 << 13);
+		GPIOB->BSRR = (1 << 12);
+		movement_direction = BACKWARDS;
+		MAX_DC = 0;
+	} else if (movement_direction == BACKWARDS) {
+		set_speed(MAX_DC, MAX_DC);
+		movement_direction = STOPPED;
+	} else if (movement_direction == STOPPED) {
+		GPIOB->BSRR = (1 << 13) << 16;
+		GPIOB->BSRR = (1 << 12) << 16;
+		movement_direction = FORWARD;
+		MAX_DC=100;
+	}
 }
 void setup_wheels() {
 
@@ -110,8 +136,8 @@ void setup_pwm() {
 	TIM2->PSC = 32000; // Pre-scaler=32000 -> f_counter=32000000/32000 = 1000 steps/second
 	TIM2->CNT = 0; // Initialize counter to 0
 	TIM2->ARR = 99;   // 100 niveles (0-99) -> 100 Hz PWM con 1% de resolución
-	TIM2->CCR3 = DC_LEFT;  // 50% duty cycle
-	TIM2->CCR4 = DC_RIGHT;
+	TIM2->CCR3 = MAX_DC;  // 50% duty cycle
+	TIM2->CCR4 = MAX_DC;
 	TIM2->DIER = 0x0000; // No IRQ when counting is finished -> CCyIE = 0
 	// Output mode
 	TIM2->CCMR2 = 0x6868; // CCyS = 0 (TOC, PWM)
@@ -140,20 +166,20 @@ void BUZZ() {
 	if (close) {
 //			 TOGGLE_3V();
 		TIM4->CCMR2 = 0x0030;
-//		set_speed(50,50);
+//		set_speed(50, 50);
 
 	} else if (too_close) {
 //			  GPIOB -> BSRR = (1<<8);
 		TIM4->CCMR2 = 0x0050;
-//		set_speed(20,20);
+//		set_speed(20, 20);
 
 	} else {
 //			  GPIOB -> BSRR = (1<<8)<<16;
 		TIM4->CCMR2 = 0x0040;
-//		set_speed(100,100);
+//		set_speed(100, 100);
 
 	}
-    TIM2->EGR |= 0x0001; // Generate update event
+	TIM2->EGR |= 0x0001; // Generate update event
 }
 
 void MEASSURE() {
@@ -371,9 +397,13 @@ int main(void) {
 	INIT_TIM4();
 	INIT_TIM3();
 	START_COUNTER_2();
-	set_speed(20,20);
 	setup_wheels();
+
+
 	setup_pwm();
+
+	turn_direction();
+
 
 //  GPIOB->BSRR = (1 << 12);
 
