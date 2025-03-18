@@ -185,6 +185,7 @@ void SETUP_WHEELS() {
 
 }
 void TURN_90_RIGHT(bool backwards) {
+	enum direction temp = MOVEMENT_DIRECTION;
 
 	STOP(true);
 	COUNT = 0;
@@ -206,20 +207,28 @@ void TURN_90_RIGHT(bool backwards) {
 	while (COUNT != 5) {
 	}
 
-//	TODO: When it ends keep moving in the same direction
-	TURN_FORWARD(MAX_DC, MAX_DC);
+	if (temp == FORWARD) {
+		TURN_FORWARD(MAX_DC, MAX_DC);
+	} else if (temp == BACKWARDS) {
+// TODO: Make this 100 - MAX_DC OR LOCAL_MAX TO MAKE IT REVERSIBLE
+		TURN_BACKWARDS(0, 0);
+	}
 	TIM4->DIER = 0x0008;
 	COUNT = 0;
 }
 
 void TURN_90_LEFT(bool backwards) {
+	enum direction temp = MOVEMENT_DIRECTION;
+
 	STOP(true);
 	COUNT = 0;
 	while (COUNT != 5) {
 	}
 	if (backwards) {
+
 		TURN_BACKWARDS(MAX_DC, 0);
 	} else {
+
 		TURN_FORWARD(0, MAX_DC);
 	}
 	COUNT = 0;
@@ -231,8 +240,12 @@ void TURN_90_LEFT(bool backwards) {
 	}
 
 	//	TODO: When it ends keep moving in the same direction
-
-	TURN_FORWARD(MAX_DC, MAX_DC);
+	if (temp == FORWARD) {
+		TURN_FORWARD(MAX_DC, MAX_DC);
+	} else if (temp == BACKWARDS) {
+// TODO: Make this 100 - MAX_DC OR LOCAL_MAX TO MAKE IT REVERSIBLE
+		TURN_BACKWARDS(0, 0);
+	}
 	TIM4->DIER = 0x0008;
 	COUNT = 0;
 }
@@ -260,27 +273,26 @@ void SETUP_PWM() {
 }
 
 void CYCLE_TURN_POSITION() {
-    switch (TURN_POSITION) {
-        case CLEAR:
-            TURN_POSITION = FIRST_OBSTACLE_BACKWARDS;
-            break;
-        case FIRST_OBSTACLE_BACKWARDS:
-            TURN_POSITION = FIRST_OBSTACLE_FORWARD;
-            break;
-        case FIRST_OBSTACLE_FORWARD:
-            TURN_POSITION = SECOND_OBSTACLE_BACKWARDS;
-            break;
-        case SECOND_OBSTACLE_BACKWARDS:
-            TURN_POSITION = SECOND_OBSTACLE_FORWARD;
-            break;
-        case SECOND_OBSTACLE_FORWARD:
-            TURN_POSITION = DOOMED;
-            break;
-        default:
-            break;
-    }
+	switch (TURN_POSITION) {
+	case CLEAR:
+		TURN_POSITION = FIRST_OBSTACLE_BACKWARDS;
+		break;
+	case FIRST_OBSTACLE_BACKWARDS:
+		TURN_POSITION = FIRST_OBSTACLE_FORWARD;
+		break;
+	case FIRST_OBSTACLE_FORWARD:
+		TURN_POSITION = SECOND_OBSTACLE_BACKWARDS;
+		break;
+	case SECOND_OBSTACLE_BACKWARDS:
+		TURN_POSITION = SECOND_OBSTACLE_FORWARD;
+		break;
+	case SECOND_OBSTACLE_FORWARD:
+		TURN_POSITION = DOOMED;
+		break;
+	default:
+		break;
+	}
 }
-
 
 //void TOGGLE_3V(){
 //	 if (!estado){
@@ -335,7 +347,7 @@ void MEASSURE() {
 
 	if (((DISTANCE_U1 / 2) <= 5 && DISTANCE_U1 != 0)
 			|| ((DISTANCE_U2 / 2) <= 5 && DISTANCE_U2 != 0)) {
-		if (TURN_POSITION == CLEAR) {
+		if (TURN_POSITION == CLEAR && MOVEMENT_DIRECTION != STOPPED) {
 			TURN_POSITION = FIRST_OBSTACLE_BACKWARDS;
 		}
 		CRITICAL_CLOSE = true;
@@ -613,30 +625,32 @@ int main(void) {
 	/* USER CODE BEGIN WHILE */
 	while (1) {
 		if (CRITICAL_CLOSE) {
+		    bool isBackward = (MOVEMENT_DIRECTION == FORWARD); // Si está en FORWARD, los giros son hacia atrás
+
 		    switch (TURN_POSITION) {
 		        case FIRST_OBSTACLE_BACKWARDS:
-		            TURN_90_LEFT(true);  // Gira a la izquierda hacia atrás
+		            TURN_90_LEFT(isBackward);
 		            CYCLE_TURN_POSITION();
 		            break;
 
 		        case FIRST_OBSTACLE_FORWARD:
-		            TURN_90_LEFT(false); // Gira a la izquierda hacia adelante
+		            TURN_90_LEFT(!isBackward);
 		            CYCLE_TURN_POSITION();
 		            break;
 
 		        case SECOND_OBSTACLE_BACKWARDS:
-		            TURN_90_RIGHT(true);  // Gira a la derecha hacia atrás
+		            TURN_90_RIGHT(isBackward);
 		            CYCLE_TURN_POSITION();
 		            break;
 
 		        case SECOND_OBSTACLE_FORWARD:
-		            TURN_90_RIGHT(false); // Gira a la derecha hacia adelante
+		            TURN_90_RIGHT(!isBackward);
 		            CYCLE_TURN_POSITION();
 		            break;
 
 		        case DOOMED:
-		        	STOP(false);
-		        	break;
+		        	STOP(true);
+		            break;
 
 		        case CLEAR:
 		            break;
