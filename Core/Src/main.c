@@ -59,30 +59,36 @@ unsigned short STOPPED_STATE;
 unsigned short DC_RIGHT;
 unsigned short DC_LEFT;
 
-unsigned short relative_init_u1;
-unsigned short pulse_time_u1;
-unsigned short distance_u1;
+unsigned short RELATIVE_INIT_U1;
+unsigned short PULSE_TIME_U1;
+unsigned short DISTANCE_U1;
 
-unsigned short relative_init_u2;
-unsigned short pulse_time_u2;
-unsigned short distance_u2;
+unsigned short RELATIVE_INIT_U2;
+unsigned short PULSE_TIME_U2;
+unsigned short DISTANCE_U2;
 
-unsigned short count;
+unsigned short COUNT;
 
-bool critical_close;
-bool close;
-bool medium;
-bool relatively_far;
-bool estado;
+bool CRITICAL_CLOSE;
+bool CLOSE;
+bool MEDIUM;
+bool RELATIVELY_FAR;
+// TODO: remove STATE
+bool STATE;
 
 enum direction {
 	FORWARD, BACKWARDS, STOPPED
 };
 enum turn_state {
-	CLEAR, FIRST_OBSTACLE, SECOND_OBSTACLE
+	CLEAR,
+	FIRST_OBSTACLE_BACKWARDS,
+	FIRST_OBSTACLE_FORWARD,
+	SECOND_OBSTACLE_BACKWARDS,
+	SECOND_OBSTACLE_FORWARD,
+	DOOMED
 };
-enum turn_state turn_position = CLEAR;
-enum direction movement_direction = STOPPED;
+enum turn_state TURN_POSITION = CLEAR;
+enum direction MOVEMENT_DIRECTION = STOPPED;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -99,8 +105,8 @@ static void MX_TIM4_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-void set_speed(unsigned short dc_left, unsigned short dc_right) {
-	if (movement_direction != STOPPED) {
+void SET_SPEED(unsigned short dc_left, unsigned short dc_right) {
+	if (MOVEMENT_DIRECTION != STOPPED) {
 		DC_RIGHT = dc_right;
 		DC_LEFT = dc_left;
 		TIM2->CCR3 = DC_LEFT;
@@ -108,8 +114,8 @@ void set_speed(unsigned short dc_left, unsigned short dc_right) {
 	}
 }
 
-void turn_backwards(unsigned short dc_left, unsigned short dc_right) {
-	movement_direction = BACKWARDS;
+void TURN_BACKWARDS(unsigned short dc_left, unsigned short dc_right) {
+	MOVEMENT_DIRECTION = BACKWARDS;
 
 	LOCAL_MAX_DC = 0;
 	FIRST_HALVED = MAX_DC / 2;
@@ -119,22 +125,22 @@ void turn_backwards(unsigned short dc_left, unsigned short dc_right) {
 
 	GPIOB->BSRR = (1 << 13);
 	GPIOB->BSRR = (1 << 12);
-	set_speed(dc_left, dc_right);
+	SET_SPEED(dc_left, dc_right);
 }
 
-void stop(bool change_state) {
-	if (movement_direction == FORWARD) {
-		set_speed(0, 0);
-	} else if (movement_direction == BACKWARDS) {
-		set_speed(MAX_DC, MAX_DC);
+void STOP(bool change_state) {
+	if (MOVEMENT_DIRECTION == FORWARD) {
+		SET_SPEED(0, 0);
+	} else if (MOVEMENT_DIRECTION == BACKWARDS) {
+		SET_SPEED(MAX_DC, MAX_DC);
 	}
 	if (change_state) {
-		movement_direction = STOPPED;
+		MOVEMENT_DIRECTION = STOPPED;
 	}
 }
 
-void turn_forward(unsigned short dc_left, unsigned short dc_right) {
-	movement_direction = FORWARD;
+void TURN_FORWARD(unsigned short dc_left, unsigned short dc_right) {
+	MOVEMENT_DIRECTION = FORWARD;
 
 	LOCAL_MAX_DC = MAX_DC;
 	FIRST_HALVED = MAX_DC / 2;
@@ -144,22 +150,22 @@ void turn_forward(unsigned short dc_left, unsigned short dc_right) {
 
 	GPIOB->BSRR = (1 << 13) << 16;
 	GPIOB->BSRR = (1 << 12) << 16;
-	set_speed(dc_left, dc_right);
+	SET_SPEED(dc_left, dc_right);
 
 }
 
-void turn_direction() {
-	if (movement_direction == FORWARD) {
-		turn_backwards(0, 0);
+void TURN_DIRECTION() {
+	if (MOVEMENT_DIRECTION == FORWARD) {
+		TURN_BACKWARDS(0, 0);
 
-	} else if (movement_direction == BACKWARDS) {
-		stop(true);
+	} else if (MOVEMENT_DIRECTION == BACKWARDS) {
+		STOP(true);
 
-	} else if (movement_direction == STOPPED) {
-		turn_forward(MAX_DC, MAX_DC);
+	} else if (MOVEMENT_DIRECTION == STOPPED) {
+		TURN_FORWARD(MAX_DC, MAX_DC);
 	}
 }
-void setup_wheels() {
+void SETUP_WHEELS() {
 
 	GPIOB->MODER |= (1 << (11 * 2 + 1));
 	GPIOB->MODER &= ~(1 << 11 * 2);
@@ -178,44 +184,59 @@ void setup_wheels() {
 	GPIOB->MODER |= (1 << 12 * 2);
 
 }
-void TURN_90_LEFT() {
-//	TIM4->DIER = 0x0000;
-	stop(true);
-	count = 0;
-	while (count != 5) {
+void TURN_90_RIGHT(bool backwards) {
+
+	STOP(true);
+	COUNT = 0;
+	while (COUNT != 5) {
 	}
-	turn_backwards(0, MAX_DC);
-	count = 0;
-	while (count != 10) {
+
+	if (backwards) {
+		TURN_BACKWARDS(0, MAX_DC);
+	} else {
+		TURN_FORWARD(MAX_DC, 0);
 	}
-	stop(true);
-	count = 0;
-	while (count != 5) {
+
+	COUNT = 0;
+	while (COUNT != 10) {
 	}
-	turn_forward(MAX_DC, MAX_DC);
+
+	STOP(true);
+	COUNT = 0;
+	while (COUNT != 5) {
+	}
+
+//	TODO: When it ends keep moving in the same direction
+	TURN_FORWARD(MAX_DC, MAX_DC);
 	TIM4->DIER = 0x0008;
-	count = 0;
+	COUNT = 0;
 }
 
-void TURN_90_RIGHT() {
-//	TIM4->DIER = 0x0000;
-	stop(true);
-	count = 0;
-	while (count != 5) {
+void TURN_90_LEFT(bool backwards) {
+	STOP(true);
+	COUNT = 0;
+	while (COUNT != 5) {
 	}
-	turn_backwards(MAX_DC, 0);
-	count = 0;
-	while (count != 10) {
+	if (backwards) {
+		TURN_BACKWARDS(MAX_DC, 0);
+	} else {
+		TURN_FORWARD(0, MAX_DC);
 	}
-	stop(true);
-	count = 0;
-	while (count != 5) {
+	COUNT = 0;
+	while (COUNT != 10) {
 	}
-	turn_forward(MAX_DC, MAX_DC);
+	STOP(true);
+	COUNT = 0;
+	while (COUNT != 5) {
+	}
+
+	//	TODO: When it ends keep moving in the same direction
+
+	TURN_FORWARD(MAX_DC, MAX_DC);
 	TIM4->DIER = 0x0008;
-	count = 0;
+	COUNT = 0;
 }
-void setup_pwm() {
+void SETUP_PWM() {
 
 	TIM2->CR1 = 0x0080; // ARPE = 1 -> Is PWM; CEN = 0; Counter OFF
 	TIM2->CR2 = 0x0000; // Always 0 in this course
@@ -239,14 +260,27 @@ void setup_pwm() {
 }
 
 void CYCLE_TURN_POSITION() {
-	if (turn_position == CLEAR) {
-		turn_position = FIRST_OBSTACLE;
-	} else if (turn_position == FIRST_OBSTACLE) {
-		turn_position = SECOND_OBSTACLE;
-	} else if (turn_position == SECOND_OBSTACLE) {
-		turn_position = CLEAR;
-	}
+    switch (TURN_POSITION) {
+        case CLEAR:
+            TURN_POSITION = FIRST_OBSTACLE_BACKWARDS;
+            break;
+        case FIRST_OBSTACLE_BACKWARDS:
+            TURN_POSITION = FIRST_OBSTACLE_FORWARD;
+            break;
+        case FIRST_OBSTACLE_FORWARD:
+            TURN_POSITION = SECOND_OBSTACLE_BACKWARDS;
+            break;
+        case SECOND_OBSTACLE_BACKWARDS:
+            TURN_POSITION = SECOND_OBSTACLE_FORWARD;
+            break;
+        case SECOND_OBSTACLE_FORWARD:
+            TURN_POSITION = DOOMED;
+            break;
+        default:
+            break;
+    }
 }
+
 
 //void TOGGLE_3V(){
 //	 if (!estado){
@@ -260,38 +294,38 @@ void CYCLE_TURN_POSITION() {
 //}
 
 void BUZZ() {
-	if (critical_close) {
+	if (CRITICAL_CLOSE) {
 //			 TOGGLE_3V();
 		TIM4->CCMR2 = 0x0050;
 //		stop(false);
 //		TIM4->DIER = 0x0002;
 
-	} else if (close) {
+	} else if (CLOSE) {
 //			  GPIOB -> BSRR = (1<<8);
 		TIM4->CCMR2 = 0x0030;
-		set_speed(THIRD_HALVED, THIRD_HALVED);
+		SET_SPEED(THIRD_HALVED, THIRD_HALVED);
 
 	}
 
-	else if (medium) {
+	else if (MEDIUM) {
 		//			  GPIOB -> BSRR = (1<<8);
 		TIM4->CCMR2 = 0x0030;
-		set_speed(SECOND_HALVED, SECOND_HALVED);
+		SET_SPEED(SECOND_HALVED, SECOND_HALVED);
 
 	}
 
-	else if (relatively_far) {
+	else if (RELATIVELY_FAR) {
 		//			  GPIOB -> BSRR = (1<<8);
 		TIM4->CCMR2 = 0x0040;
 
-		set_speed(FIRST_HALVED, FIRST_HALVED);
+		SET_SPEED(FIRST_HALVED, FIRST_HALVED);
 
 	}
 
 	else {
 //			  GPIOB -> BSRR = (1<<8)<<16;
 		TIM4->CCMR2 = 0x0040;
-		set_speed(LOCAL_MAX_DC, LOCAL_MAX_DC);
+		SET_SPEED(LOCAL_MAX_DC, LOCAL_MAX_DC);
 
 	}
 	TIM2->EGR |= 0x0001; // Generate update event
@@ -299,61 +333,65 @@ void BUZZ() {
 
 void MEASSURE() {
 
-	if (((distance_u1 / 2) <= 5 && distance_u1 != 0)
-			|| ((distance_u2 / 2) <= 5 && distance_u2 != 0)) {
-		if (turn_position == CLEAR) {
-			turn_position = FIRST_OBSTACLE;
+	if (((DISTANCE_U1 / 2) <= 5 && DISTANCE_U1 != 0)
+			|| ((DISTANCE_U2 / 2) <= 5 && DISTANCE_U2 != 0)) {
+		if (TURN_POSITION == CLEAR) {
+			TURN_POSITION = FIRST_OBSTACLE_BACKWARDS;
 		}
-		critical_close = true;
-		close = false;
-		medium = false;
-		relatively_far = false;
-	} else if (((distance_u2 / 2) > 5 && (distance_u2 / 2) <= 10)
-			|| ((distance_u1 / 2) > 5 && (distance_u1 / 2) <= 10)) {
-		critical_close = false;
-		close = true;
-		medium = false;
-		relatively_far = false;
-	} else if (((distance_u2 / 2) > 10 && (distance_u2 / 2) <= 20)
-			|| ((distance_u1 / 2) > 10 && (distance_u1 / 2) <= 20)) {
-		critical_close = false;
-		close = false;
-		medium = true;
-		relatively_far = false;
-	} else if (((distance_u2 / 2) > 20 && (distance_u2 / 2) <= 30)
-			|| ((distance_u1 / 2) > 20 && (distance_u1 / 2) <= 30)) {
-		critical_close = false;
-		close = false;
-		medium = false;
-		relatively_far = true;
+		CRITICAL_CLOSE = true;
+		CLOSE = false;
+		MEDIUM = false;
+		RELATIVELY_FAR = false;
+	} else if (((DISTANCE_U2 / 2) > 5 && (DISTANCE_U2 / 2) <= 10)
+			|| ((DISTANCE_U1 / 2) > 5 && (DISTANCE_U1 / 2) <= 10)) {
+		TURN_POSITION = CLEAR;
+		CRITICAL_CLOSE = false;
+		CLOSE = true;
+		MEDIUM = false;
+		RELATIVELY_FAR = false;
+	} else if (((DISTANCE_U2 / 2) > 10 && (DISTANCE_U2 / 2) <= 20)
+			|| ((DISTANCE_U1 / 2) > 10 && (DISTANCE_U1 / 2) <= 20)) {
+		TURN_POSITION = CLEAR;
+		CRITICAL_CLOSE = false;
+		CLOSE = false;
+		MEDIUM = true;
+		RELATIVELY_FAR = false;
+	} else if (((DISTANCE_U2 / 2) > 20 && (DISTANCE_U2 / 2) <= 30)
+			|| ((DISTANCE_U1 / 2) > 20 && (DISTANCE_U1 / 2) <= 30)) {
+		TURN_POSITION = CLEAR;
+		CRITICAL_CLOSE = false;
+		CLOSE = false;
+		MEDIUM = false;
+		RELATIVELY_FAR = true;
 	} else {
-		critical_close = false;
-		close = false;
-		medium = false;
-		relatively_far = false;
+		TURN_POSITION = CLEAR;
+		CRITICAL_CLOSE = false;
+		CLOSE = false;
+		MEDIUM = false;
+		RELATIVELY_FAR = false;
 	}
 }
 
 void START_COUNTER_3() {
-	// Enabling the counter
-	// Clear all flags
+// Enabling the counter
+// Clear all flags
 
 	TIM3->SR = 0;
 	TIM3->EGR |= (1 << 0);		// UG = 1 -> Update event
 	TIM3->CR1 |= 0x0001;		// CEN = 1 -> Starting CNT
 
-	// Enabling IRQ source for TIM3 in NVIC (position 29)
+// Enabling IRQ source for TIM3 in NVIC (position 29)
 	NVIC->ISER[0] |= (1 << 29);
 
 }
 
 void START_COUNTER_2() {
-	// Enabling the counter
+// Enabling the counter
 	TIM4->SR = 0;
-	//	TIM2->EGR |= (1<<0);		// UG = 1 -> Update event
+//	TIM2->EGR |= (1<<0);		// UG = 1 -> Update event
 	TIM4->CR1 |= 0x0001;		// CEN = 1 -> Starting CNT
 
-	// Enabling IRQ source for TIM3 in NVIC (position 29)
+// Enabling IRQ source for TIM3 in NVIC (position 29)
 	NVIC->ISER[0] |= (1 << 30);
 
 }
@@ -364,10 +402,10 @@ void TIM3_IRQHandler(void) {
 	if ((TIM3->SR & (1 << 2)) != 0) {
 		// If rising edge
 		if ((GPIOC->IDR & 0x80) != 0) {
-			relative_init_u1 = TIM3->CCR2;
+			RELATIVE_INIT_U1 = TIM3->CCR2;
 		} else {
-			pulse_time_u1 = TIM3->CCR2 - relative_init_u1;
-			distance_u1 = 0.034 * pulse_time_u1;
+			PULSE_TIME_U1 = TIM3->CCR2 - RELATIVE_INIT_U1;
+			DISTANCE_U1 = 0.034 * PULSE_TIME_U1;
 		}
 
 		TIM3->SR &= ~(0x0004);
@@ -377,10 +415,10 @@ void TIM3_IRQHandler(void) {
 	if ((TIM3->SR & (1 << 4)) != 0) {
 		// If rising edge
 		if ((GPIOC->IDR & 0x200) != 0) {
-			relative_init_u2 = TIM3->CCR4;
+			RELATIVE_INIT_U2 = TIM3->CCR4;
 		} else {
-			pulse_time_u2 = TIM3->CCR4 - relative_init_u2;
-			distance_u2 = 0.034 * pulse_time_u2;
+			PULSE_TIME_U2 = TIM3->CCR4 - RELATIVE_INIT_U2;
+			DISTANCE_U2 = 0.034 * PULSE_TIME_U2;
 		}
 		TIM3->SR &= ~(0x0010);
 	}
@@ -407,34 +445,34 @@ void TIM4_IRQHandler(void) {
 	}
 
 	if ((TIM4->SR & (1 << 2)) != 0) {
-		count++;
+		COUNT++;
 		TIM4->SR &= ~(0x0002);
 	}
 
 }
 
 void INIT_TIM3() {
-	// Internal clock selection: CR1, CR2, SMRC
+// Internal clock selection: CR1, CR2, SMRC
 	TIM3->CR1 = 0x0000; // ARPE = 0 -> Not periodic
 						// CEN = 0; Counter off
-	//------------------------------------------
-	// DO NOT TOUCH
+//------------------------------------------
+// DO NOT TOUCH
 	TIM3->CR2 = 0x0000; // Always 0x0000 in this subject
 	TIM3->SMCR = 0x0000; // Always 0x0000 in this subject
 	TIM3->ARR = 0xFFFF;   // Recommended value = FFFF
 
-	//-------------------------------------------
-	// Setting up the counter functionality: PSC, CNT, ARR y CCRx
+//-------------------------------------------
+// Setting up the counter functionality: PSC, CNT, ARR y CCRx
 	TIM3->PSC = 31; // Preescaler=32 -> F_counter=32000000/32 = 1000000 steps/second
 	TIM3->CNT = 0;	   // Initial value for CNT
 	TIM3->CCR1 = 11;	//11 steps = 11us
 	TIM3->CCR3 = 0xFFFF;
-	// IRQ or no-IRQ selection: DIER
-	// Usar el DIER para desenmascarar los canales
-	// IRQ for channels 4,3,1
+// IRQ or no-IRQ selection: DIER
+// Usar el DIER para desenmascarar los canales
+// IRQ for channels 4,3,1
 	TIM3->DIER = 0x0016;
 
-	// Counter output mode
+// Counter output mode
 	TIM3->CCMR1 = 0x0100;
 	TIM3->CCMR2 = 0x0100;
 
@@ -444,23 +482,23 @@ void INIT_TIM3() {
 
 void INIT_TIM4() {
 
-	// Internal clock selection: CR1, CR2, SMRC
+// Internal clock selection: CR1, CR2, SMRC
 	TIM4->CR1 = 0x0080; // ARPE = 1 it is periodic
 						// CEN = 0; Counter off
-	//------------------------------------------
-	// DO NOT TOUCH
+//------------------------------------------
+// DO NOT TOUCH
 	TIM4->CR2 = 0x0000; // Always 0x0000 in this subject
 	TIM4->SMCR = 0x0000; // Always 0x0000 in this subject
 	TIM4->ARR = 1000;   // Recommended value = FFFF
 
-	//-------------------------------------------
-	// Setting up the counter functionality: PSC, CNT, ARR y CCRx
+//-------------------------------------------
+// Setting up the counter functionality: PSC, CNT, ARR y CCRx
 	TIM4->PSC = 3199; // Preescaler=3200 -> F_counter=32000000/3200 = 10000 steps/second
 	TIM4->CNT = 0;	   // Initial value for CNT
 	TIM4->CCR3 = 1000;
 	TIM4->CCR1 = 1000;
 
-	// IRQ or no-IRQ selection: DIER
+// IRQ or no-IRQ selection: DIER
 	TIM4->DIER = 0x0008;
 	TIM4->CCMR2 = 0x0000;
 	TIM4->CCMR1 = 0x0000;
@@ -477,12 +515,12 @@ void INIT_3V_OUTPUT() {
 }
 
 void INIT_TRIGG_ECHO() {
-	// PC6 as output for TIM3CH1 (DO)
+// PC6 as output for TIM3CH1 (DO)
 
 	GPIOC->MODER &= ~(1 << (2 * 6 + 1)); // MODER = 01 (DO) for PC6
 	GPIOC->MODER |= (1 << (2 * 6));
 
-	// PC7 as output for TIM3CH2 (AF)
+// PC7 as output for TIM3CH2 (AF)
 	GPIOC->MODER |= (1 << (2 * 7 + 1));
 	GPIOC->MODER &= ~(1 << (2 * 7));
 
@@ -492,7 +530,7 @@ void INIT_TRIGG_ECHO() {
 	GPIOC->MODER &= ~(1 << (2 * 8 + 1)); // MODER = 01 (DO) for PC8
 	GPIOC->MODER |= (1 << (2 * 8));
 
-	// PC9 as output for TIM3CH4 (AF)
+// PC9 as output for TIM3CH4 (AF)
 	GPIOC->MODER |= (1 << (2 * 9 + 1));
 	GPIOC->MODER &= ~(1 << (2 * 9));
 
@@ -505,7 +543,7 @@ void EXTI0_IRQHandler(void) // ISR for EXTI0.
 // PC jumps here when the EXTI0 event occurs
 {
 	if (EXTI->PR != 0) {
-		turn_direction();
+		TURN_DIRECTION();
 		EXTI->PR = 0x01; // Clear the EXTI0 flag
 	}
 }
@@ -562,9 +600,9 @@ int main(void) {
 	INIT_TIM4();
 	INIT_TIM3();
 	START_COUNTER_2();
-	setup_wheels();
+	SETUP_WHEELS();
 
-	setup_pwm();
+	SETUP_PWM();
 	SETUP_USER_BUTTON();
 //	turn_forward(MAX_DC,MAX_DC);
 //	turn_forward(MAX_DC,MAX_DC);
@@ -574,354 +612,371 @@ int main(void) {
 	/* Infinite loop */
 	/* USER CODE BEGIN WHILE */
 	while (1) {
-		if (critical_close) {
-			switch (turn_position) {
-			case FIRST_OBSTACLE:
-				TURN_90_LEFT();
-				CYCLE_TURN_POSITION();
-				break;
-			case SECOND_OBSTACLE:
-				TURN_90_RIGHT();
-				CYCLE_TURN_POSITION();
-				break;
-			case CLEAR:
-				break;
-			default:
-				break;
-			}}
+		if (CRITICAL_CLOSE) {
+		    switch (TURN_POSITION) {
+		        case FIRST_OBSTACLE_BACKWARDS:
+		            TURN_90_LEFT(true);  // Gira a la izquierda hacia atrás
+		            CYCLE_TURN_POSITION();
+		            break;
+
+		        case FIRST_OBSTACLE_FORWARD:
+		            TURN_90_LEFT(false); // Gira a la izquierda hacia adelante
+		            CYCLE_TURN_POSITION();
+		            break;
+
+		        case SECOND_OBSTACLE_BACKWARDS:
+		            TURN_90_RIGHT(true);  // Gira a la derecha hacia atrás
+		            CYCLE_TURN_POSITION();
+		            break;
+
+		        case SECOND_OBSTACLE_FORWARD:
+		            TURN_90_RIGHT(false); // Gira a la derecha hacia adelante
+		            CYCLE_TURN_POSITION();
+		            break;
+
+		        case DOOMED:
+		        	STOP(false);
+		        	break;
+
+		        case CLEAR:
+		            break;
+
+		        default:
+		            break;
+		    }
+		}
+
 		MEASSURE();
 
-			/* USER CODE END WHILE */
+		/* USER CODE END WHILE */
 
-			/* USER CODE BEGIN 3 */
-		}
-		/* USER CODE END 3 */
+		/* USER CODE BEGIN 3 */
 	}
+	/* USER CODE END 3 */
+}
 
-	/**
-	 * @brief System Clock Configuration
-	 * @retval None
+/**
+ * @brief System Clock Configuration
+ * @retval None
+ */
+void SystemClock_Config(void) {
+	RCC_OscInitTypeDef RCC_OscInitStruct = { 0 };
+	RCC_ClkInitTypeDef RCC_ClkInitStruct = { 0 };
+
+	/** Configure the main internal regulator output voltage
 	 */
-	void SystemClock_Config(void) {
-		RCC_OscInitTypeDef RCC_OscInitStruct = { 0 };
-		RCC_ClkInitTypeDef RCC_ClkInitStruct = { 0 };
+	__HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
 
-		/** Configure the main internal regulator output voltage
-		 */
-		__HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
-
-		/** Initializes the RCC Oscillators according to the specified parameters
-		 * in the RCC_OscInitTypeDef structure.
-		 */
-		RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
-		RCC_OscInitStruct.HSIState = RCC_HSI_ON;
-		RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
-		RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
-		RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
-		RCC_OscInitStruct.PLL.PLLMUL = RCC_PLL_MUL6;
-		RCC_OscInitStruct.PLL.PLLDIV = RCC_PLL_DIV3;
-		if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK) {
-			Error_Handler();
-		}
-
-		/** Initializes the CPU, AHB and APB buses clocks
-		 */
-		RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK
-				| RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2;
-		RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
-		RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
-		RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
-		RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
-
-		if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_1)
-				!= HAL_OK) {
-			Error_Handler();
-		}
-	}
-
-	/**
-	 * @brief ADC Initialization Function
-	 * @param None
-	 * @retval None
+	/** Initializes the RCC Oscillators according to the specified parameters
+	 * in the RCC_OscInitTypeDef structure.
 	 */
-	static void MX_ADC_Init(void) {
-
-		/* USER CODE BEGIN ADC_Init 0 */
-
-		/* USER CODE END ADC_Init 0 */
-
-		ADC_ChannelConfTypeDef sConfig = { 0 };
-
-		/* USER CODE BEGIN ADC_Init 1 */
-
-		/* USER CODE END ADC_Init 1 */
-
-		/** Configure the global features of the ADC (Clock, Resolution, Data Alignment and number of conversion)
-		 */
-		hadc.Instance = ADC1;
-		hadc.Init.ClockPrescaler = ADC_CLOCK_ASYNC_DIV1;
-		hadc.Init.Resolution = ADC_RESOLUTION_12B;
-		hadc.Init.DataAlign = ADC_DATAALIGN_RIGHT;
-		hadc.Init.ScanConvMode = ADC_SCAN_DISABLE;
-		hadc.Init.EOCSelection = ADC_EOC_SEQ_CONV;
-		hadc.Init.LowPowerAutoWait = ADC_AUTOWAIT_DISABLE;
-		hadc.Init.LowPowerAutoPowerOff = ADC_AUTOPOWEROFF_DISABLE;
-		hadc.Init.ChannelsBank = ADC_CHANNELS_BANK_A;
-		hadc.Init.ContinuousConvMode = DISABLE;
-		hadc.Init.NbrOfConversion = 1;
-		hadc.Init.DiscontinuousConvMode = DISABLE;
-		hadc.Init.ExternalTrigConv = ADC_EXTERNALTRIGCONV_T2_CC3;
-		hadc.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_RISING;
-		hadc.Init.DMAContinuousRequests = DISABLE;
-		if (HAL_ADC_Init(&hadc) != HAL_OK) {
-			Error_Handler();
-		}
-
-		/** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
-		 */
-		sConfig.Channel = ADC_CHANNEL_4;
-		sConfig.Rank = ADC_REGULAR_RANK_1;
-		sConfig.SamplingTime = ADC_SAMPLETIME_4CYCLES;
-		if (HAL_ADC_ConfigChannel(&hadc, &sConfig) != HAL_OK) {
-			Error_Handler();
-		}
-		/* USER CODE BEGIN ADC_Init 2 */
-
-		/* USER CODE END ADC_Init 2 */
-
+	RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
+	RCC_OscInitStruct.HSIState = RCC_HSI_ON;
+	RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
+	RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+	RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
+	RCC_OscInitStruct.PLL.PLLMUL = RCC_PLL_MUL6;
+	RCC_OscInitStruct.PLL.PLLDIV = RCC_PLL_DIV3;
+	if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK) {
+		Error_Handler();
 	}
 
-	/**
-	 * @brief TIM2 Initialization Function
-	 * @param None
-	 * @retval None
+	/** Initializes the CPU, AHB and APB buses clocks
 	 */
-	static void MX_TIM2_Init(void) {
+	RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK
+			| RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2;
+	RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
+	RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
+	RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
+	RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
 
-		/* USER CODE BEGIN TIM2_Init 0 */
-
-		/* USER CODE END TIM2_Init 0 */
-
-		TIM_ClockConfigTypeDef sClockSourceConfig = { 0 };
-		TIM_MasterConfigTypeDef sMasterConfig = { 0 };
-
-		/* USER CODE BEGIN TIM2_Init 1 */
-
-		/* USER CODE END TIM2_Init 1 */
-		htim2.Instance = TIM2;
-		htim2.Init.Prescaler = 0;
-		htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-		htim2.Init.Period = 65535;
-		htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-		htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-		if (HAL_TIM_Base_Init(&htim2) != HAL_OK) {
-			Error_Handler();
-		}
-		sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
-		if (HAL_TIM_ConfigClockSource(&htim2, &sClockSourceConfig) != HAL_OK) {
-			Error_Handler();
-		}
-		sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
-		sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
-		if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig)
-				!= HAL_OK) {
-			Error_Handler();
-		}
-		/* USER CODE BEGIN TIM2_Init 2 */
-
-		/* USER CODE END TIM2_Init 2 */
-
+	if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_1) != HAL_OK) {
+		Error_Handler();
 	}
+}
 
-	/**
-	 * @brief TIM3 Initialization Function
-	 * @param None
-	 * @retval None
+/**
+ * @brief ADC Initialization Function
+ * @param None
+ * @retval None
+ */
+static void MX_ADC_Init(void) {
+
+	/* USER CODE BEGIN ADC_Init 0 */
+
+	/* USER CODE END ADC_Init 0 */
+
+	ADC_ChannelConfTypeDef sConfig = { 0 };
+
+	/* USER CODE BEGIN ADC_Init 1 */
+
+	/* USER CODE END ADC_Init 1 */
+
+	/** Configure the global features of the ADC (Clock, Resolution, Data Alignment and number of conversion)
 	 */
-	static void MX_TIM3_Init(void) {
-
-		/* USER CODE BEGIN TIM3_Init 0 */
-
-		/* USER CODE END TIM3_Init 0 */
-
-		TIM_ClockConfigTypeDef sClockSourceConfig = { 0 };
-		TIM_MasterConfigTypeDef sMasterConfig = { 0 };
-
-		/* USER CODE BEGIN TIM3_Init 1 */
-
-		/* USER CODE END TIM3_Init 1 */
-		htim3.Instance = TIM3;
-		htim3.Init.Prescaler = 0;
-		htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
-		htim3.Init.Period = 65535;
-		htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-		htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-		if (HAL_TIM_Base_Init(&htim3) != HAL_OK) {
-			Error_Handler();
-		}
-		sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
-		if (HAL_TIM_ConfigClockSource(&htim3, &sClockSourceConfig) != HAL_OK) {
-			Error_Handler();
-		}
-		sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
-		sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
-		if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig)
-				!= HAL_OK) {
-			Error_Handler();
-		}
-		/* USER CODE BEGIN TIM3_Init 2 */
-
-		/* USER CODE END TIM3_Init 2 */
-
+	hadc.Instance = ADC1;
+	hadc.Init.ClockPrescaler = ADC_CLOCK_ASYNC_DIV1;
+	hadc.Init.Resolution = ADC_RESOLUTION_12B;
+	hadc.Init.DataAlign = ADC_DATAALIGN_RIGHT;
+	hadc.Init.ScanConvMode = ADC_SCAN_DISABLE;
+	hadc.Init.EOCSelection = ADC_EOC_SEQ_CONV;
+	hadc.Init.LowPowerAutoWait = ADC_AUTOWAIT_DISABLE;
+	hadc.Init.LowPowerAutoPowerOff = ADC_AUTOPOWEROFF_DISABLE;
+	hadc.Init.ChannelsBank = ADC_CHANNELS_BANK_A;
+	hadc.Init.ContinuousConvMode = DISABLE;
+	hadc.Init.NbrOfConversion = 1;
+	hadc.Init.DiscontinuousConvMode = DISABLE;
+	hadc.Init.ExternalTrigConv = ADC_EXTERNALTRIGCONV_T2_CC3;
+	hadc.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_RISING;
+	hadc.Init.DMAContinuousRequests = DISABLE;
+	if (HAL_ADC_Init(&hadc) != HAL_OK) {
+		Error_Handler();
 	}
 
-	/**
-	 * @brief TIM4 Initialization Function
-	 * @param None
-	 * @retval None
+	/** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
 	 */
-	static void MX_TIM4_Init(void) {
-
-		/* USER CODE BEGIN TIM4_Init 0 */
-
-		/* USER CODE END TIM4_Init 0 */
-
-		TIM_ClockConfigTypeDef sClockSourceConfig = { 0 };
-		TIM_MasterConfigTypeDef sMasterConfig = { 0 };
-
-		/* USER CODE BEGIN TIM4_Init 1 */
-
-		/* USER CODE END TIM4_Init 1 */
-		htim4.Instance = TIM4;
-		htim4.Init.Prescaler = 0;
-		htim4.Init.CounterMode = TIM_COUNTERMODE_UP;
-		htim4.Init.Period = 65535;
-		htim4.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-		htim4.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-		if (HAL_TIM_Base_Init(&htim4) != HAL_OK) {
-			Error_Handler();
-		}
-		sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
-		if (HAL_TIM_ConfigClockSource(&htim4, &sClockSourceConfig) != HAL_OK) {
-			Error_Handler();
-		}
-		sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
-		sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
-		if (HAL_TIMEx_MasterConfigSynchronization(&htim4, &sMasterConfig)
-				!= HAL_OK) {
-			Error_Handler();
-		}
-		/* USER CODE BEGIN TIM4_Init 2 */
-
-		/* USER CODE END TIM4_Init 2 */
-
+	sConfig.Channel = ADC_CHANNEL_4;
+	sConfig.Rank = ADC_REGULAR_RANK_1;
+	sConfig.SamplingTime = ADC_SAMPLETIME_4CYCLES;
+	if (HAL_ADC_ConfigChannel(&hadc, &sConfig) != HAL_OK) {
+		Error_Handler();
 	}
+	/* USER CODE BEGIN ADC_Init 2 */
 
-	/**
-	 * @brief TS Initialization Function
-	 * @param None
-	 * @retval None
-	 */
-	static void MX_TS_Init(void) {
+	/* USER CODE END ADC_Init 2 */
 
-		/* USER CODE BEGIN TS_Init 0 */
+}
 
-		/* USER CODE END TS_Init 0 */
+/**
+ * @brief TIM2 Initialization Function
+ * @param None
+ * @retval None
+ */
+static void MX_TIM2_Init(void) {
 
-		/* USER CODE BEGIN TS_Init 1 */
+	/* USER CODE BEGIN TIM2_Init 0 */
 
-		/* USER CODE END TS_Init 1 */
-		/* USER CODE BEGIN TS_Init 2 */
+	/* USER CODE END TIM2_Init 0 */
 
-		/* USER CODE END TS_Init 2 */
+	TIM_ClockConfigTypeDef sClockSourceConfig = { 0 };
+	TIM_MasterConfigTypeDef sMasterConfig = { 0 };
 
+	/* USER CODE BEGIN TIM2_Init 1 */
+
+	/* USER CODE END TIM2_Init 1 */
+	htim2.Instance = TIM2;
+	htim2.Init.Prescaler = 0;
+	htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
+	htim2.Init.Period = 65535;
+	htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+	htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+	if (HAL_TIM_Base_Init(&htim2) != HAL_OK) {
+		Error_Handler();
 	}
-
-	/**
-	 * @brief GPIO Initialization Function
-	 * @param None
-	 * @retval None
-	 */
-	static void MX_GPIO_Init(void) {
-		GPIO_InitTypeDef GPIO_InitStruct = { 0 };
-		/* USER CODE BEGIN MX_GPIO_Init_1 */
-		/* USER CODE END MX_GPIO_Init_1 */
-
-		/* GPIO Ports Clock Enable */
-		__HAL_RCC_GPIOC_CLK_ENABLE();
-		__HAL_RCC_GPIOA_CLK_ENABLE();
-		__HAL_RCC_GPIOB_CLK_ENABLE();
-
-		/*Configure GPIO pin Output Level */
-		HAL_GPIO_WritePin(GPIOB, LD4_Pin | LD3_Pin, GPIO_PIN_RESET);
-
-		/*Configure GPIO pins : SEG14_Pin SEG15_Pin SEG16_Pin SEG17_Pin
-		 SEG18_Pin SEG19_Pin SEG20_Pin SEG21_Pin
-		 SEG22_Pin SEG23_Pin */
-		GPIO_InitStruct.Pin = SEG14_Pin | SEG15_Pin | SEG16_Pin | SEG17_Pin
-				| SEG18_Pin | SEG19_Pin | SEG20_Pin | SEG21_Pin | SEG22_Pin
-				| SEG23_Pin;
-		GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-		GPIO_InitStruct.Pull = GPIO_NOPULL;
-		GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-		GPIO_InitStruct.Alternate = GPIO_AF11_LCD;
-		HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
-
-		/*Configure GPIO pin : B1_Pin */
-		GPIO_InitStruct.Pin = B1_Pin;
-		GPIO_InitStruct.Mode = GPIO_MODE_EVT_RISING;
-		GPIO_InitStruct.Pull = GPIO_NOPULL;
-		HAL_GPIO_Init(B1_GPIO_Port, &GPIO_InitStruct);
-
-		/*Configure GPIO pins : SEG0_Pin SEG1_Pin SEG2_Pin COM0_Pin
-		 COM1_Pin COM2_Pin SEG12_Pin */
-		GPIO_InitStruct.Pin = SEG0_Pin | SEG1_Pin | SEG2_Pin | COM0_Pin
-				| COM1_Pin | COM2_Pin | SEG12_Pin;
-		GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-		GPIO_InitStruct.Pull = GPIO_NOPULL;
-		GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-		GPIO_InitStruct.Alternate = GPIO_AF11_LCD;
-		HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-
-		/*Configure GPIO pins : SEG6_Pin SEG7_Pin SEG8_Pin SEG9_Pin
-		 SEG10_Pin SEG11_Pin SEG3_Pin SEG4_Pin
-		 SEG5_Pin SEG13_Pin COM3_Pin */
-		GPIO_InitStruct.Pin = SEG6_Pin | SEG7_Pin | SEG8_Pin | SEG9_Pin
-				| SEG10_Pin | SEG11_Pin | SEG3_Pin | SEG4_Pin | SEG5_Pin
-				| SEG13_Pin | COM3_Pin;
-		GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-		GPIO_InitStruct.Pull = GPIO_NOPULL;
-		GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-		GPIO_InitStruct.Alternate = GPIO_AF11_LCD;
-		HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
-
-		/*Configure GPIO pins : LD4_Pin LD3_Pin */
-		GPIO_InitStruct.Pin = LD4_Pin | LD3_Pin;
-		GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-		GPIO_InitStruct.Pull = GPIO_NOPULL;
-		GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-		HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
-
-		/* USER CODE BEGIN MX_GPIO_Init_2 */
-		/* USER CODE END MX_GPIO_Init_2 */
+	sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+	if (HAL_TIM_ConfigClockSource(&htim2, &sClockSourceConfig) != HAL_OK) {
+		Error_Handler();
 	}
-
-	/* USER CODE BEGIN 4 */
-
-	/* USER CODE END 4 */
-
-	/**
-	 * @brief  This function is executed in case of error occurrence.
-	 * @retval None
-	 */
-	void Error_Handler(void) {
-		/* USER CODE BEGIN Error_Handler_Debug */
-		/* User can add his own implementation to report the HAL error return state */
-		__disable_irq();
-		while (1) {
-		}
-		/* USER CODE END Error_Handler_Debug */
+	sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+	sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+	if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig)
+			!= HAL_OK) {
+		Error_Handler();
 	}
+	/* USER CODE BEGIN TIM2_Init 2 */
+
+	/* USER CODE END TIM2_Init 2 */
+
+}
+
+/**
+ * @brief TIM3 Initialization Function
+ * @param None
+ * @retval None
+ */
+static void MX_TIM3_Init(void) {
+
+	/* USER CODE BEGIN TIM3_Init 0 */
+
+	/* USER CODE END TIM3_Init 0 */
+
+	TIM_ClockConfigTypeDef sClockSourceConfig = { 0 };
+	TIM_MasterConfigTypeDef sMasterConfig = { 0 };
+
+	/* USER CODE BEGIN TIM3_Init 1 */
+
+	/* USER CODE END TIM3_Init 1 */
+	htim3.Instance = TIM3;
+	htim3.Init.Prescaler = 0;
+	htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
+	htim3.Init.Period = 65535;
+	htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+	htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+	if (HAL_TIM_Base_Init(&htim3) != HAL_OK) {
+		Error_Handler();
+	}
+	sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+	if (HAL_TIM_ConfigClockSource(&htim3, &sClockSourceConfig) != HAL_OK) {
+		Error_Handler();
+	}
+	sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+	sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+	if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig)
+			!= HAL_OK) {
+		Error_Handler();
+	}
+	/* USER CODE BEGIN TIM3_Init 2 */
+
+	/* USER CODE END TIM3_Init 2 */
+
+}
+
+/**
+ * @brief TIM4 Initialization Function
+ * @param None
+ * @retval None
+ */
+static void MX_TIM4_Init(void) {
+
+	/* USER CODE BEGIN TIM4_Init 0 */
+
+	/* USER CODE END TIM4_Init 0 */
+
+	TIM_ClockConfigTypeDef sClockSourceConfig = { 0 };
+	TIM_MasterConfigTypeDef sMasterConfig = { 0 };
+
+	/* USER CODE BEGIN TIM4_Init 1 */
+
+	/* USER CODE END TIM4_Init 1 */
+	htim4.Instance = TIM4;
+	htim4.Init.Prescaler = 0;
+	htim4.Init.CounterMode = TIM_COUNTERMODE_UP;
+	htim4.Init.Period = 65535;
+	htim4.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+	htim4.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+	if (HAL_TIM_Base_Init(&htim4) != HAL_OK) {
+		Error_Handler();
+	}
+	sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+	if (HAL_TIM_ConfigClockSource(&htim4, &sClockSourceConfig) != HAL_OK) {
+		Error_Handler();
+	}
+	sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+	sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+	if (HAL_TIMEx_MasterConfigSynchronization(&htim4, &sMasterConfig)
+			!= HAL_OK) {
+		Error_Handler();
+	}
+	/* USER CODE BEGIN TIM4_Init 2 */
+
+	/* USER CODE END TIM4_Init 2 */
+
+}
+
+/**
+ * @brief TS Initialization Function
+ * @param None
+ * @retval None
+ */
+static void MX_TS_Init(void) {
+
+	/* USER CODE BEGIN TS_Init 0 */
+
+	/* USER CODE END TS_Init 0 */
+
+	/* USER CODE BEGIN TS_Init 1 */
+
+	/* USER CODE END TS_Init 1 */
+	/* USER CODE BEGIN TS_Init 2 */
+
+	/* USER CODE END TS_Init 2 */
+
+}
+
+/**
+ * @brief GPIO Initialization Function
+ * @param None
+ * @retval None
+ */
+static void MX_GPIO_Init(void) {
+	GPIO_InitTypeDef GPIO_InitStruct = { 0 };
+	/* USER CODE BEGIN MX_GPIO_Init_1 */
+	/* USER CODE END MX_GPIO_Init_1 */
+
+	/* GPIO Ports Clock Enable */
+	__HAL_RCC_GPIOC_CLK_ENABLE();
+	__HAL_RCC_GPIOA_CLK_ENABLE();
+	__HAL_RCC_GPIOB_CLK_ENABLE();
+
+	/*Configure GPIO pin Output Level */
+	HAL_GPIO_WritePin(GPIOB, LD4_Pin | LD3_Pin, GPIO_PIN_RESET);
+
+	/*Configure GPIO pins : SEG14_Pin SEG15_Pin SEG16_Pin SEG17_Pin
+	 SEG18_Pin SEG19_Pin SEG20_Pin SEG21_Pin
+	 SEG22_Pin SEG23_Pin */
+	GPIO_InitStruct.Pin = SEG14_Pin | SEG15_Pin | SEG16_Pin | SEG17_Pin
+			| SEG18_Pin | SEG19_Pin | SEG20_Pin | SEG21_Pin | SEG22_Pin
+			| SEG23_Pin;
+	GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+	GPIO_InitStruct.Pull = GPIO_NOPULL;
+	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+	GPIO_InitStruct.Alternate = GPIO_AF11_LCD;
+	HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+
+	/*Configure GPIO pin : B1_Pin */
+	GPIO_InitStruct.Pin = B1_Pin;
+	GPIO_InitStruct.Mode = GPIO_MODE_EVT_RISING;
+	GPIO_InitStruct.Pull = GPIO_NOPULL;
+	HAL_GPIO_Init(B1_GPIO_Port, &GPIO_InitStruct);
+
+	/*Configure GPIO pins : SEG0_Pin SEG1_Pin SEG2_Pin COM0_Pin
+	 COM1_Pin COM2_Pin SEG12_Pin */
+	GPIO_InitStruct.Pin = SEG0_Pin | SEG1_Pin | SEG2_Pin | COM0_Pin | COM1_Pin
+			| COM2_Pin | SEG12_Pin;
+	GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+	GPIO_InitStruct.Pull = GPIO_NOPULL;
+	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+	GPIO_InitStruct.Alternate = GPIO_AF11_LCD;
+	HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+	/*Configure GPIO pins : SEG6_Pin SEG7_Pin SEG8_Pin SEG9_Pin
+	 SEG10_Pin SEG11_Pin SEG3_Pin SEG4_Pin
+	 SEG5_Pin SEG13_Pin COM3_Pin */
+	GPIO_InitStruct.Pin = SEG6_Pin | SEG7_Pin | SEG8_Pin | SEG9_Pin | SEG10_Pin
+			| SEG11_Pin | SEG3_Pin | SEG4_Pin | SEG5_Pin | SEG13_Pin | COM3_Pin;
+	GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+	GPIO_InitStruct.Pull = GPIO_NOPULL;
+	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+	GPIO_InitStruct.Alternate = GPIO_AF11_LCD;
+	HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+	/*Configure GPIO pins : LD4_Pin LD3_Pin */
+	GPIO_InitStruct.Pin = LD4_Pin | LD3_Pin;
+	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+	GPIO_InitStruct.Pull = GPIO_NOPULL;
+	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+	HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+	/* USER CODE BEGIN MX_GPIO_Init_2 */
+	/* USER CODE END MX_GPIO_Init_2 */
+}
+
+/* USER CODE BEGIN 4 */
+
+/* USER CODE END 4 */
+
+/**
+ * @brief  This function is executed in case of error occurrence.
+ * @retval None
+ */
+void Error_Handler(void) {
+	/* USER CODE BEGIN Error_Handler_Debug */
+	/* User can add his own implementation to report the HAL error return state */
+	__disable_irq();
+	while (1) {
+	}
+	/* USER CODE END Error_Handler_Debug */
+}
 
 #ifdef  USE_FULL_ASSERT
 /**
