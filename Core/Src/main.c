@@ -67,6 +67,8 @@ unsigned short relative_init_u2;
 unsigned short pulse_time_u2;
 unsigned short distance_u2;
 
+unsigned short count;
+
 bool close;
 bool too_close;
 bool estado;
@@ -91,7 +93,7 @@ static void MX_TIM4_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-void set_speed(unsigned short dc_right, unsigned short dc_left) {
+void set_speed(unsigned short dc_left, unsigned short dc_right) {
 	if (movement_direction != STOPPED) {
 		DC_RIGHT = dc_right;
 		DC_LEFT = dc_left;
@@ -100,7 +102,7 @@ void set_speed(unsigned short dc_right, unsigned short dc_left) {
 	}
 }
 
-void turn_backwards() {
+void turn_backwards(unsigned short dc_left, unsigned short dc_right) {
 	movement_direction = BACKWARDS;
 
 	LOCAL_MAX_DC = 0;
@@ -111,7 +113,7 @@ void turn_backwards() {
 
 	GPIOB->BSRR = (1 << 13);
 	GPIOB->BSRR = (1 << 12);
-	set_speed(LOCAL_MAX_DC, LOCAL_MAX_DC);
+	set_speed(dc_left, dc_right);
 }
 
 void stop() {
@@ -124,7 +126,7 @@ void stop() {
 
 }
 
-void turn_forward() {
+void turn_forward(unsigned short dc_left, unsigned short dc_right) {
 	movement_direction = FORWARD;
 
 	LOCAL_MAX_DC = MAX_DC;
@@ -135,19 +137,19 @@ void turn_forward() {
 
 	GPIOB->BSRR = (1 << 13) << 16;
 	GPIOB->BSRR = (1 << 12) << 16;
-	set_speed(LOCAL_MAX_DC, LOCAL_MAX_DC);
+	set_speed(dc_left, dc_right);
 
 }
 
 void turn_direction() {
 	if (movement_direction == FORWARD) {
-		turn_backwards();
+		turn_backwards(0, 0);
 
 	} else if (movement_direction == BACKWARDS) {
 		stop();
 
 	} else if (movement_direction == STOPPED) {
-		turn_forward();
+		turn_forward(MAX_DC, MAX_DC);
 	}
 }
 void setup_wheels() {
@@ -302,7 +304,7 @@ void TIM3_IRQHandler(void) {
 
 void TIM4_IRQHandler(void) {
 
-	if ((TIM4->SR & 0x0008) != 0) {
+	if ((TIM4->SR & (1 << 4)) != 0) {
 		BUZZ();
 
 		GPIOC->BSRR = (1 << 6);
@@ -311,6 +313,14 @@ void TIM4_IRQHandler(void) {
 		START_COUNTER_3();
 		TIM4->SR &= ~(0x0008);
 	}
+
+	if ((TIM4->SR & (1 << 2)) != 0) {
+		count ++;
+		TIM4->SR &= ~(0x0002);
+	}
+
+
+
 }
 
 void INIT_TIM3() {
@@ -358,10 +368,13 @@ void INIT_TIM4() {
 	TIM4->PSC = 3199; // Preescaler=3200 -> F_counter=32000000/3200 = 10000 steps/second
 	TIM4->CNT = 0;	   // Initial value for CNT
 	TIM4->CCR3 = 1000;
+	TIM4 -> CCR1 = 1000;
+
 
 	// IRQ or no-IRQ selection: DIER
 	TIM4->DIER = 0x0008;
 	TIM4->CCMR2 = 0x0000;
+	TIM4 -> CCMR1 = 0x0000;
 	TIM4->CCER = 0x0100;
 }
 
@@ -418,6 +431,20 @@ void SETUP_USER_BUTTON() {
 	EXTI->IMR |= 0x01; // Enables EXTI0
 	NVIC->ISER[0] |= (1 << 6);
 }
+
+void TURN_90_LEFT(){
+	stop();
+	turn_backwards(0,MAX_DC);
+	count = 0;
+	TIM4 -> DIER = 0x000A;
+	while (count != 30)
+	stop();
+	count = 0;
+	while (count != 5)
+	turn_forward(MAX_DC,MAX_DC);
+	TIM4 -> DIER = 0x0008;
+	count = 0;
+}
 /* USER CODE END 0 */
 
 /**
@@ -463,7 +490,10 @@ int main(void) {
 
 	setup_pwm();
 	SETUP_USER_BUTTON();
-	turn_forward();
+	turn_forward(MAX_DC,MAX_DC);
+//	TURN_90_LEFT();
+
+
 
 	/* USER CODE END 2 */
 
