@@ -69,8 +69,10 @@ unsigned short distance_u2;
 
 unsigned short count;
 
+bool critical_close;
 bool close;
-bool too_close;
+bool medium;
+bool relatively_far;
 bool estado;
 
 enum direction {
@@ -116,14 +118,15 @@ void turn_backwards(unsigned short dc_left, unsigned short dc_right) {
 	set_speed(dc_left, dc_right);
 }
 
-void stop() {
+void stop(bool change_state) {
 	if (movement_direction == FORWARD) {
 		set_speed(0, 0);
 	} else if (movement_direction == BACKWARDS) {
 		set_speed(MAX_DC, MAX_DC);
 	}
+	if (change_state){
 	movement_direction = STOPPED;
-
+	}
 }
 
 void turn_forward(unsigned short dc_left, unsigned short dc_right) {
@@ -146,7 +149,7 @@ void turn_direction() {
 		turn_backwards(0, 0);
 
 	} else if (movement_direction == BACKWARDS) {
-		stop();
+		stop(true);
 
 	} else if (movement_direction == STOPPED) {
 		turn_forward(MAX_DC, MAX_DC);
@@ -171,7 +174,19 @@ void setup_wheels() {
 	GPIOB->MODER |= (1 << 12 * 2);
 
 }
-
+void TURN_90_LEFT() {
+	stop(true);
+	turn_backwards(0, MAX_DC);
+	count = 0;
+	TIM4->DIER = 0x000A;
+	while (count != 30)
+		stop(true);
+	count = 0;
+	while (count != 5)
+		turn_forward(MAX_DC, MAX_DC);
+	TIM4->DIER = 0x0008;
+	count = 0;
+}
 void setup_pwm() {
 
 	TIM2->CR1 = 0x0080; // ARPE = 1 -> Is PWM; CEN = 0; Counter OFF
@@ -207,17 +222,33 @@ void setup_pwm() {
 //}
 
 void BUZZ() {
-	if (close) {
+	if (critical_close) {
 //			 TOGGLE_3V();
-		TIM4->CCMR2 = 0x0030;
-		set_speed(FIRST_HALVED, FIRST_HALVED);
-
-	} else if (too_close) {
-//			  GPIOB -> BSRR = (1<<8);
 		TIM4->CCMR2 = 0x0050;
+		stop(false);
+
+
+	} else if (close) {
+//			  GPIOB -> BSRR = (1<<8);
+		TIM4->CCMR2 = 0x0030;
+		set_speed(THIRD_HALVED, THIRD_HALVED);
+
+	}
+
+	else if (medium) {
+		//			  GPIOB -> BSRR = (1<<8);
+		TIM4->CCMR2 = 0x0030;
 		set_speed(SECOND_HALVED, SECOND_HALVED);
 
-	} else {
+	}
+
+	else if (relatively_far) {
+		//			  GPIOB -> BSRR = (1<<8);
+		set_speed(FIRST_HALVED, FIRST_HALVED);
+
+	}
+
+	else {
 //			  GPIOB -> BSRR = (1<<8)<<16;
 		TIM4->CCMR2 = 0x0040;
 		set_speed(LOCAL_MAX_DC, LOCAL_MAX_DC);
@@ -228,17 +259,35 @@ void BUZZ() {
 
 void MEASSURE() {
 
-	if (((distance_u1 / 2) < 5 && distance_u1 != 0)
-			|| ((distance_u2 / 2) < 5 && distance_u2 != 0)) {
+	if (((distance_u1 / 2) <= 5 && distance_u1 != 0)
+			|| ((distance_u2 / 2) <= 5 && distance_u2 != 0)) {
+		critical_close = true;
 		close = false;
-		too_close = true;
-	} else if (((distance_u2 / 2) > 5 && (distance_u2 / 2) < 30)
-			|| ((distance_u1 / 2) > 5 && (distance_u1 / 2) < 30)) {
+		medium = false;
+		relatively_far = false;
+	} else if (((distance_u2 / 2) > 5 && (distance_u2 / 2) <= 10)
+			|| ((distance_u1 / 2) > 5 && (distance_u1 / 2) <= 10)) {
+		critical_close = false;
 		close = true;
-		too_close = false;
-	} else {
+		medium = false;
+		relatively_far = false;
+	} else if (((distance_u2 / 2) > 10 && (distance_u2 / 2) <= 20)
+			|| ((distance_u1 / 2) > 10 && (distance_u1 / 2) <= 20)) {
+		critical_close = false;
 		close = false;
-		too_close = false;
+		medium = true;
+		relatively_far = false;
+	} else if (((distance_u2 / 2) > 20 && (distance_u2 / 2) <= 30)
+			|| ((distance_u1 / 2) > 20 && (distance_u1 / 2) <= 30)) {
+		critical_close = false;
+		close = false;
+		medium = false;
+		relatively_far = true;
+	} else {
+		critical_close = false;
+		close = false;
+		medium = false;
+		relatively_far = false;
 	}
 }
 
@@ -315,11 +364,9 @@ void TIM4_IRQHandler(void) {
 	}
 
 	if ((TIM4->SR & (1 << 2)) != 0) {
-		count ++;
+		count++;
 		TIM4->SR &= ~(0x0002);
 	}
-
-
 
 }
 
@@ -368,13 +415,12 @@ void INIT_TIM4() {
 	TIM4->PSC = 3199; // Preescaler=3200 -> F_counter=32000000/3200 = 10000 steps/second
 	TIM4->CNT = 0;	   // Initial value for CNT
 	TIM4->CCR3 = 1000;
-	TIM4 -> CCR1 = 1000;
-
+	TIM4->CCR1 = 1000;
 
 	// IRQ or no-IRQ selection: DIER
 	TIM4->DIER = 0x0008;
 	TIM4->CCMR2 = 0x0000;
-	TIM4 -> CCMR1 = 0x0000;
+	TIM4->CCMR1 = 0x0000;
 	TIM4->CCER = 0x0100;
 }
 
@@ -432,19 +478,6 @@ void SETUP_USER_BUTTON() {
 	NVIC->ISER[0] |= (1 << 6);
 }
 
-void TURN_90_LEFT(){
-	stop();
-	turn_backwards(0,MAX_DC);
-	count = 0;
-	TIM4 -> DIER = 0x000A;
-	while (count != 30)
-	stop();
-	count = 0;
-	while (count != 5)
-	turn_forward(MAX_DC,MAX_DC);
-	TIM4 -> DIER = 0x0008;
-	count = 0;
-}
 /* USER CODE END 0 */
 
 /**
@@ -490,10 +523,7 @@ int main(void) {
 
 	setup_pwm();
 	SETUP_USER_BUTTON();
-	turn_forward(MAX_DC,MAX_DC);
-//	TURN_90_LEFT();
-
-
+//	turn_forward(MAX_DC,MAX_DC);
 
 	/* USER CODE END 2 */
 
