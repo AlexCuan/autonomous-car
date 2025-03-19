@@ -130,7 +130,7 @@ void STOP(bool change_state) {
 	if (MOVEMENT_DIRECTION == FORWARD) {
 		SET_SPEED(0, 0);
 	} else if (MOVEMENT_DIRECTION == BACKWARDS) {
-		SET_SPEED(MAX_DC, MAX_DC);
+		SET_SPEED(100, 100);
 	}
 	if (change_state) {
 		MOVEMENT_DIRECTION = STOPPED;
