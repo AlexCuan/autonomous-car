@@ -73,8 +73,6 @@ void Error_Handler(void);
 #define B1_GPIO_Port GPIOA
 #define SEG0_Pin GPIO_PIN_1
 #define SEG0_GPIO_Port GPIOA
-#define SEG1_Pin GPIO_PIN_2
-#define SEG1_GPIO_Port GPIOA
 #define SEG2_Pin GPIO_PIN_3
 #define SEG2_GPIO_Port GPIOA
 #define IDD_Measurement_Pin GPIO_PIN_4
