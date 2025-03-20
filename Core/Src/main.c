@@ -18,10 +18,10 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include <stdbool.h>
+
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include <stdbool.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -190,13 +190,13 @@ void TURN_90_RIGHT(bool backwards) {
 	}
 
 	if (backwards) {
-		TURN_BACKWARDS(0, MAX_DC);
+		TURN_BACKWARDS(0, 100);
 	} else {
-		TURN_FORWARD(MAX_DC, 0);
+		TURN_FORWARD(100, 0);
 	}
 
 	COUNT = 0;
-	while (COUNT != 10) {
+	while (COUNT != 7) {
 	}
 
 	STOP(true);
@@ -222,13 +222,13 @@ void TURN_90_LEFT(bool backwards) {
 	}
 	if (backwards) {
 
-		TURN_BACKWARDS(MAX_DC, 0);
+		TURN_BACKWARDS(100, 0);
 	} else {
 
-		TURN_FORWARD(0, MAX_DC);
+		TURN_FORWARD(0, 100);
 	}
 	COUNT = 0;
-	while (COUNT != 10) {
+	while (COUNT != 7) {
 	}
 	STOP(true);
 	COUNT = 0;
