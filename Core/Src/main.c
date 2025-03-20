@@ -118,7 +118,7 @@ void TURN_BACKWARDS(unsigned short dc_left, unsigned short dc_right) {
 
 	FIRST_HALVED = MAX_DC / 2;
 	SECOND_HALVED = (MAX_DC * 3) / 4;
-	THIRD_HALVED = (MAX_DC * 7) / 8;
+	THIRD_HALVED = (MAX_DC * 4) / 5;
 	STOPPED_STATE = MAX_DC;
 
 	GPIOB->BSRR = (1 << 13);
@@ -142,7 +142,7 @@ void TURN_FORWARD(unsigned short dc_left, unsigned short dc_right) {
 
 	FIRST_HALVED = MAX_DC / 2;
 	SECOND_HALVED = MAX_DC / 4;
-	THIRD_HALVED = MAX_DC / 8;
+	THIRD_HALVED = MAX_DC / 5;
 	STOPPED_STATE = 0;
 
 	GPIOB->BSRR = (1 << 13) << 16;

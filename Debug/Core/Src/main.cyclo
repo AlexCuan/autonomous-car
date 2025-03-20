@@ -1,5 +1,5 @@
 ../Core/Src/main.c:107:6:SET_SPEED	2
-../Core/Src/main.c:116:6:TURN_BACKWARDS	3
+../Core/Src/main.c:116:6:TURN_BACKWARDS	2
 ../Core/Src/main.c:129:6:STOP	4
 ../Core/Src/main.c:140:6:TURN_FORWARD	1
 ../Core/Src/main.c:154:6:TURN_DIRECTION	4
