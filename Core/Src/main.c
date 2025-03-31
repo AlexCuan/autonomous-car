@@ -92,7 +92,7 @@ enum turn_state {
 enum turn_state TURN_POSITION = CLEAR;
 enum direction MOVEMENT_DIRECTION = STOPPED;
 
-static uint8_t texto[2]; // Buffer to store the received character
+static uint8_t texto[5]; // Buffer to store the received character
 
 /* USER CODE END PV */
 
@@ -169,8 +169,8 @@ void STOP(bool change_state) {
 		SET_SPEED(100, 100);
 	}
 	if (change_state) {
-		general_log_message("Stopping...");
 		MOVEMENT_DIRECTION = STOPPED;
+		general_log_message("Stopping...");
 	}
 }
 
@@ -222,10 +222,10 @@ void SETUP_WHEELS() {
 }
 void TURN_90_RIGHT(bool backwards) {
 	enum direction temp = MOVEMENT_DIRECTION;
+    TIM4->DIER = 0x0002;
 
 	STOP(true);
 	general_log_message("Turning 90 degrees to the Right");
-	TIM4->DIER = 0x0002;
 
 	COUNT = 0;
 	while (COUNT != 5) {
@@ -245,6 +245,7 @@ void TURN_90_RIGHT(bool backwards) {
 	COUNT = 0;
 	while (COUNT != 5) {
 	}
+	TIM4->CCR3 = 1000;
 	TIM4->DIER = 0x0008;
 
 	if (temp == FORWARD) {
@@ -257,7 +258,7 @@ void TURN_90_RIGHT(bool backwards) {
 
 void TURN_90_LEFT(bool backwards) {
 	enum direction temp = MOVEMENT_DIRECTION;
-	TIM4->DIER = 0x0002;
+    TIM4->DIER = 0x0002;
 	STOP(true);
 	general_log_message("Turning 90 degrees to the left");
 	while (COUNT != 5) {
@@ -276,6 +277,7 @@ void TURN_90_LEFT(bool backwards) {
 	COUNT = 0;
 	while (COUNT != 5) {
 	}
+	TIM4->CCR3 = 1000;
 	TIM4->DIER = 0x0008;
 	if (temp == FORWARD) {
 		TURN_FORWARD(MAX_DC, MAX_DC);
@@ -453,7 +455,8 @@ void TIM3_IRQHandler(void) {
 
 void TIM4_IRQHandler(void) {
 
-	if ((TIM4->SR & TIM_SR_CC3IF) != 0){
+	if ((TIM4->SR & TIM_SR_CC3IF) && (TIM4->DIER & TIM_DIER_CC3IE)){
+		general_log_message("Here Inside");
 		BUZZ();
 
 		GPIOC->BSRR = (1 << 6);
@@ -463,7 +466,7 @@ void TIM4_IRQHandler(void) {
 		TIM4->SR &= ~TIM_SR_CC3IF;
 	}
 
-	else if ((TIM4->SR  & TIM_SR_CC1IF) != 0) {
+	else if ((TIM4->SR & TIM_SR_CC1IF) && (TIM4->DIER & TIM_DIER_CC1IE)) {
 		COUNT++;
 		char log_msg[10];  // Adjust size as needed
 		sprintf(log_msg, "COUNT = %d", COUNT);
@@ -598,14 +601,25 @@ void UPDATE_DC() {
 
 }
 
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
-
-    // Echo back the received character
-    HAL_UART_Transmit(huart, texto, 1, 100);
-
-    // Reactivate reception for the next character
-    HAL_UART_Receive_IT(huart, texto, 1);
-}
+//void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
+//    // Process the command
+//    bool isBackward = (MOVEMENT_DIRECTION == FORWARD);
+//
+//    if (strcmp((char*)texto, "STOP") == 0) {
+//        STOP(true);
+//    } else if (strcmp((char*)texto, "CYCL") == 0) {
+//        TURN_DIRECTION();
+//    } else if (strcmp((char*)texto, "LEFT") == 0) {
+//        TURN_90_LEFT(isBackward);
+//    } else if (strcmp((char*)texto, "RIGH") == 0) {
+//        TURN_90_RIGHT(isBackward);
+//    }
+//
+//    // Clear buffer
+//    memset(texto, 0, sizeof(texto));
+//    // Reactivate reception for 4 characters
+//    HAL_UART_Receive_IT(huart, texto, 4);
+//}
 
 //void receive_string() {
 //    uint8_t received_byte;  // Extra byte for NULL terminator
@@ -665,8 +679,7 @@ int main(void)
 
 	SETUP_PWM();
 	SETUP_USER_BUTTON();
-	HAL_UART_Receive_IT(&huart1, texto, 1);
-//	HAL_UART_Receive_IT(&huart1, texto, 1);
+//	HAL_UART_Receive_IT(&huart1, texto, 4);
   /* USER CODE END 2 */
 
   /* Infinite loop */
