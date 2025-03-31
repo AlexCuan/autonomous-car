@@ -225,6 +225,7 @@ void TURN_90_RIGHT(bool backwards) {
 
 	STOP(true);
 	general_log_message("Turning 90 degrees to the Right");
+	TIM4->DIER = 0x0002;
 
 	COUNT = 0;
 	while (COUNT != 5) {
@@ -244,22 +245,21 @@ void TURN_90_RIGHT(bool backwards) {
 	COUNT = 0;
 	while (COUNT != 5) {
 	}
+	TIM4->DIER = 0x0008;
 
 	if (temp == FORWARD) {
 		TURN_FORWARD(MAX_DC, MAX_DC);
 	} else if (temp == BACKWARDS) {
 		TURN_BACKWARDS(INVERTED_MAX_DC, INVERTED_MAX_DC);
 	}
-	TIM4->DIER = 0x0008;
 	COUNT = 0;
 }
 
 void TURN_90_LEFT(bool backwards) {
 	enum direction temp = MOVEMENT_DIRECTION;
-
+	TIM4->DIER = 0x0002;
 	STOP(true);
 	general_log_message("Turning 90 degrees to the left");
-	COUNT = 0;
 	while (COUNT != 5) {
 	}
 	if (backwards) {
@@ -276,13 +276,13 @@ void TURN_90_LEFT(bool backwards) {
 	COUNT = 0;
 	while (COUNT != 5) {
 	}
-
+	TIM4->DIER = 0x0008;
 	if (temp == FORWARD) {
 		TURN_FORWARD(MAX_DC, MAX_DC);
 	} else if (temp == BACKWARDS) {
 		TURN_BACKWARDS(INVERTED_MAX_DC, INVERTED_MAX_DC);
 	}
-	TIM4->DIER = 0x0008;
+
 	COUNT = 0;
 }
 void SETUP_PWM() {
@@ -332,35 +332,28 @@ void BUZZ() {
 	} else if (CLOSE) {
 		TIM4->CCMR2 = 0x0030;
 		SET_SPEED(THIRD_HALVED, THIRD_HALVED);
-		speed_log_message();
-
 	}
 
 	else if (MEDIUM) {
 		TIM4->CCMR2 = 0x0030;
 		SET_SPEED(SECOND_HALVED, SECOND_HALVED);
-		speed_log_message();
-
 	}
 
 	else if (RELATIVELY_FAR) {
 		TIM4->CCMR2 = 0x0040;
 
 		SET_SPEED(FIRST_HALVED, FIRST_HALVED);
-		speed_log_message();
-
-
 	}
 
 	else {
 		TIM4->CCMR2 = 0x0040;
 		if (MOVEMENT_DIRECTION == FORWARD) {
 			SET_SPEED(MAX_DC, MAX_DC);
-			speed_log_message();
+
 
 		} else if (MOVEMENT_DIRECTION == BACKWARDS) {
 			SET_SPEED(INVERTED_MAX_DC, INVERTED_MAX_DC);
-			speed_log_message();
+
 
 		}
 
@@ -460,19 +453,22 @@ void TIM3_IRQHandler(void) {
 
 void TIM4_IRQHandler(void) {
 
-	if ((TIM4->SR & (1 << 4)) != 0) {
+	if ((TIM4->SR & TIM_SR_CC3IF) != 0){
 		BUZZ();
 
 		GPIOC->BSRR = (1 << 6);
 		GPIOC->BSRR = (1 << 8);
 
 		START_COUNTER_3();
-		TIM4->SR &= ~(0x0008);
+		TIM4->SR &= ~TIM_SR_CC3IF;
 	}
 
-	if ((TIM4->SR & (1 << 2)) != 0) {
+	else if ((TIM4->SR  & TIM_SR_CC1IF) != 0) {
 		COUNT++;
-		TIM4->SR &= ~(0x0002);
+		char log_msg[10];  // Adjust size as needed
+		sprintf(log_msg, "COUNT = %d", COUNT);
+		general_log_message(log_msg);
+		TIM4->SR &= ~TIM_SR_CC1IF;
 	}
 
 }
