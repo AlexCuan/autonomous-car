@@ -24,6 +24,8 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
+#include <ctype.h>
+#include <stdint.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -100,7 +102,6 @@ uint8_t CRITICAL_CLOSE_DISTANCE = 5;
 uint8_t CLOSE_DISTANCE;
 uint8_t MEDIUM_DISTANCE;
 uint8_t RELATIVELY_FAR_DISTANCE;
-
 
 /* USER CODE END PV */
 
@@ -197,12 +198,15 @@ void TURN_FORWARD(unsigned short dc_left, unsigned short dc_right) {
 void TURN_DIRECTION() {
 	if (MOVEMENT_DIRECTION == FORWARD) {
 		TURN_BACKWARDS(INVERTED_MAX_DC, INVERTED_MAX_DC);
+		general_log_message("Turn backwards");
 
 	} else if (MOVEMENT_DIRECTION == BACKWARDS) {
 		STOP(true);
 
 	} else if (MOVEMENT_DIRECTION == STOPPED) {
 		TURN_FORWARD(MAX_DC, MAX_DC);
+		general_log_message("Turn forwards");
+
 	}
 }
 void SETUP_WHEELS() {
@@ -376,7 +380,8 @@ void MEASSURE() {
 		CLOSE = false;
 		MEDIUM = false;
 		RELATIVELY_FAR = false;
-	} else if (((DISTANCE_U2 / 2) > CRITICAL_CLOSE_DISTANCE && (DISTANCE_U2 / 2) <= CLOSE_DISTANCE)
+	} else if (((DISTANCE_U2 / 2) > CRITICAL_CLOSE_DISTANCE
+			&& (DISTANCE_U2 / 2) <= CLOSE_DISTANCE)
 			|| ((DISTANCE_U1 / 2) > 5 && (DISTANCE_U1 / 2) <= 10)) {
 		TURN_POSITION = CLEAR;
 		CRITICAL_CLOSE = false;
@@ -384,7 +389,8 @@ void MEASSURE() {
 		MEDIUM = false;
 		RELATIVELY_FAR = false;
 
-	} else if (((DISTANCE_U2 / 2) > CLOSE_DISTANCE && (DISTANCE_U2 / 2) <= MEDIUM_DISTANCE)
+	} else if (((DISTANCE_U2 / 2) > CLOSE_DISTANCE
+			&& (DISTANCE_U2 / 2) <= MEDIUM_DISTANCE)
 			|| ((DISTANCE_U1 / 2) > 10 && (DISTANCE_U1 / 2) <= 20)) {
 		TURN_POSITION = CLEAR;
 		CRITICAL_CLOSE = false;
@@ -392,7 +398,8 @@ void MEASSURE() {
 		MEDIUM = true;
 		RELATIVELY_FAR = false;
 
-	} else if (((DISTANCE_U2 / 2) > MEDIUM_DISTANCE && (DISTANCE_U2 / 2) <= RELATIVELY_FAR_DISTANCE)
+	} else if (((DISTANCE_U2 / 2) > MEDIUM_DISTANCE
+			&& (DISTANCE_U2 / 2) <= RELATIVELY_FAR_DISTANCE)
 			|| ((DISTANCE_U1 / 2) > 20 && (DISTANCE_U1 / 2) <= 30)) {
 		TURN_POSITION = CLEAR;
 		CRITICAL_CLOSE = false;
@@ -615,20 +622,54 @@ void EXECUTE_REMOTE_COMMAND() {
 			TURN_90_RIGHT(true);
 		} else if (strncmp((char*) RxData, "LEFT", 4) == 0) {
 			TURN_90_LEFT(true);
+		} else if (strncmp((char*) RxData, "FORW", 4) == 0) {
+			TURN_FORWARD(MAX_DC, MAX_DC);
+		} else if (strncmp((char*) RxData, "BACK", 4) == 0) {
+			TURN_BACKWARDS(INVERTED_MAX_DC, INVERTED_MAX_DC);
+		} else if (strncmp((char*) RxData, "MD", 2) == 0&& isdigit(RxData[2])
+		&& isdigit(RxData[3])) {
+			uint8_t new_distance = atoi((char*) &RxData[2]);
+			CHANGE_MIN_DISTANCE(new_distance);
 		}
 
+		else if (strncmp((char*) RxData, "MA", 2) == 0&& isdigit(RxData[2])
+		&& isdigit(RxData[3])) {
+			uint8_t new_distance = atoi((char*) &RxData[2]);
+			CHANGE_MAX_DISTANCE(new_distance);
+		}
 
 		memset(temp, 0, sizeof(temp));
-		general_log_message(RxData);
 		memset(RxData, 0, sizeof(RxData));
 		indx = 0;
 	}
 }
 
-void INIT_DISTANCES(){
+void INIT_DISTANCES() {
 	CLOSE_DISTANCE = CRITICAL_CLOSE + 5;
 	MEDIUM_DISTANCE = CRITICAL_CLOSE + 15;
 	RELATIVELY_FAR_DISTANCE = CRITICAL_CLOSE + 25;
+}
+
+void CHANGE_MIN_DISTANCE(uint8_t new_distance) {
+	if (new_distance > 0 && new_distance <= 99) {
+		CRITICAL_CLOSE_DISTANCE = new_distance;
+	}
+
+	char message[100];
+	sprintf(message, "[%lu] Changing new minimun distance to: %d cm \r\n",
+			HAL_GetTick(), new_distance);
+	HAL_UART_Transmit(&huart1, message, strlen(message), 10000);
+}
+
+void CHANGE_MAX_DISTANCE(uint8_t new_distance) {
+	if (new_distance > 0 && new_distance <= 99) {
+		RELATIVELY_FAR_DISTANCE = new_distance;
+
+		char message[100];
+		sprintf(message, "[%lu] Changing new maximum distance to: %d cm \r\n",
+				HAL_GetTick(), new_distance);
+		HAL_UART_Transmit(&huart1, message, strlen(message), 10000);
+	}
 }
 
 //void receive_string() {
