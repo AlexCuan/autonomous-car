@@ -622,6 +622,8 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 }
 
 void EXECUTE_REMOTE_COMMAND() {
+	bool isBackward = (MOVEMENT_DIRECTION == FORWARD);
+
 	if (temp[0] == '\n') {
 
 		if (strncmp((char*) RxData, "STOP", 4) == 0) {
@@ -629,9 +631,9 @@ void EXECUTE_REMOTE_COMMAND() {
 		} else if (strncmp((char*) RxData, "CYCL", 4) == 0) {
 			TURN_DIRECTION();
 		} else if (strncmp((char*) RxData, "RIGH", 4) == 0) {
-			TURN_90_RIGHT(true);
+			TURN_90_RIGHT(isBackward);
 		} else if (strncmp((char*) RxData, "LEFT", 4) == 0) {
-			TURN_90_LEFT(true);
+			TURN_90_LEFT(isBackward);
 		} else if (strncmp((char*) RxData, "FORW", 4) == 0) {
 			TURN_FORWARD(MAX_DC, MAX_DC);
 		} else if (strncmp((char*) RxData, "BACK", 4) == 0) {
