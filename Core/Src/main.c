@@ -102,6 +102,7 @@ uint8_t CRITICAL_CLOSE_DISTANCE = 5;
 uint8_t CLOSE_DISTANCE;
 uint8_t MEDIUM_DISTANCE;
 uint8_t RELATIVELY_FAR_DISTANCE;
+bool ROTATING;
 
 /* USER CODE END PV */
 
@@ -144,6 +145,11 @@ void speed_log_message(void) {
 			HAL_GetTick(), wheel1_speed, wheel2_speed);
 
 	HAL_UART_Transmit(&huart1, message, strlen(message), 10000);
+}
+
+void RESET_DISTANCES(){
+	DISTANCE_U1 = 0;
+	DISTANCE_U2 = 0;
 }
 
 void SET_SPEED(unsigned short dc_left, unsigned short dc_right) {
@@ -232,11 +238,11 @@ void SETUP_WHEELS() {
 }
 void TURN_90_RIGHT(bool backwards) {
 	enum direction temp = MOVEMENT_DIRECTION;
-	TIM4->DIER = 0x0002;
+	ROTATING = true;
+	TIM4->DIER = 0x000A;
 
 	STOP(true);
 	general_log_message("Turning 90 degrees to the Right");
-
 	COUNT = 0;
 	while (COUNT != 5) {
 	}
@@ -256,7 +262,7 @@ void TURN_90_RIGHT(bool backwards) {
 	while (COUNT != 5) {
 	}
 	TIM4->DIER = 0x0008;
-
+	ROTATING = false;
 	if (temp == FORWARD) {
 		TURN_FORWARD(MAX_DC, MAX_DC);
 	} else if (temp == BACKWARDS) {
@@ -267,7 +273,9 @@ void TURN_90_RIGHT(bool backwards) {
 
 void TURN_90_LEFT(bool backwards) {
 	enum direction temp = MOVEMENT_DIRECTION;
-	TIM4->DIER = 0x0002;
+	ROTATING = true;
+
+	TIM4->DIER = 0x000A;
 	STOP(true);
 	general_log_message("Turning 90 degrees to the left");
 	while (COUNT != 5) {
@@ -287,6 +295,7 @@ void TURN_90_LEFT(bool backwards) {
 	while (COUNT != 5) {
 	}
 	TIM4->DIER = 0x0008;
+	ROTATING = false;
 	if (temp == FORWARD) {
 		TURN_FORWARD(MAX_DC, MAX_DC);
 	} else if (temp == BACKWARDS) {
@@ -339,23 +348,24 @@ void CYCLE_TURN_POSITION() {
 void BUZZ() {
 	if (CRITICAL_CLOSE) {
 		TIM4->CCMR2 = 0x0050;
-	} else if (CLOSE) {
+	} else if (CLOSE && !ROTATING) {
 		TIM4->CCMR2 = 0x0030;
 		SET_SPEED(THIRD_HALVED, THIRD_HALVED);
 	}
 
-	else if (MEDIUM) {
+	else if (MEDIUM && !ROTATING) {
 		TIM4->CCMR2 = 0x0030;
 		SET_SPEED(SECOND_HALVED, SECOND_HALVED);
 	}
 
-	else if (RELATIVELY_FAR) {
+	else if (RELATIVELY_FAR && !ROTATING) {
 		TIM4->CCMR2 = 0x0040;
 
 		SET_SPEED(FIRST_HALVED, FIRST_HALVED);
 	}
 
 	else {
+		if (!ROTATING){
 		TIM4->CCMR2 = 0x0040;
 		if (MOVEMENT_DIRECTION == FORWARD) {
 			SET_SPEED(MAX_DC, MAX_DC);
@@ -364,7 +374,7 @@ void BUZZ() {
 			SET_SPEED(INVERTED_MAX_DC, INVERTED_MAX_DC);
 
 		}
-
+		}
 	}
 	TIM2->EGR |= 0x0001;
 }
@@ -626,7 +636,7 @@ void EXECUTE_REMOTE_COMMAND() {
 			TURN_FORWARD(MAX_DC, MAX_DC);
 		} else if (strncmp((char*) RxData, "BACK", 4) == 0) {
 			TURN_BACKWARDS(INVERTED_MAX_DC, INVERTED_MAX_DC);
-		} else if (strncmp((char*) RxData, "MD", 2) == 0&& isdigit(RxData[2])
+		} else if (strncmp((char*) RxData, "MD", 2) == 0 && isdigit(RxData[2])
 		&& isdigit(RxData[3])) {
 			uint8_t new_distance = atoi((char*) &RxData[2]);
 			CHANGE_MIN_DISTANCE(new_distance);
@@ -736,7 +746,6 @@ int main(void) {
 	/* Infinite loop */
 	/* USER CODE BEGIN WHILE */
 	while (1) {
-//		general_log_message(texto);
 		EXECUTE_REMOTE_COMMAND();
 		UPDATE_DC();
 		if (CRITICAL_CLOSE) {
