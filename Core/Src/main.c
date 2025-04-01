@@ -95,6 +95,13 @@ enum direction MOVEMENT_DIRECTION = STOPPED;
 uint8_t RxData[10];
 uint8_t temp[2];
 int indx = 0;
+
+uint8_t CRITICAL_CLOSE_DISTANCE = 5;
+uint8_t CLOSE_DISTANCE;
+uint8_t MEDIUM_DISTANCE;
+uint8_t RELATIVELY_FAR_DISTANCE;
+
+
 /* USER CODE END PV */
 
 /* Private function prototypes --------b---------------------------------------*/
@@ -360,7 +367,7 @@ void BUZZ() {
 
 void MEASSURE() {
 
-	if (((DISTANCE_U1 / 2) <= 5 && DISTANCE_U1 != 0)
+	if (((DISTANCE_U1 / 2) <= CRITICAL_CLOSE_DISTANCE && DISTANCE_U1 != 0)
 			|| ((DISTANCE_U2 / 2) <= 5 && DISTANCE_U2 != 0)) {
 		if (TURN_POSITION == CLEAR && MOVEMENT_DIRECTION != STOPPED) {
 			TURN_POSITION = FIRST_OBSTACLE_BACKWARDS;
@@ -369,7 +376,7 @@ void MEASSURE() {
 		CLOSE = false;
 		MEDIUM = false;
 		RELATIVELY_FAR = false;
-	} else if (((DISTANCE_U2 / 2) > 5 && (DISTANCE_U2 / 2) <= 10)
+	} else if (((DISTANCE_U2 / 2) > CRITICAL_CLOSE_DISTANCE && (DISTANCE_U2 / 2) <= CLOSE_DISTANCE)
 			|| ((DISTANCE_U1 / 2) > 5 && (DISTANCE_U1 / 2) <= 10)) {
 		TURN_POSITION = CLEAR;
 		CRITICAL_CLOSE = false;
@@ -377,7 +384,7 @@ void MEASSURE() {
 		MEDIUM = false;
 		RELATIVELY_FAR = false;
 
-	} else if (((DISTANCE_U2 / 2) > 10 && (DISTANCE_U2 / 2) <= 20)
+	} else if (((DISTANCE_U2 / 2) > CLOSE_DISTANCE && (DISTANCE_U2 / 2) <= MEDIUM_DISTANCE)
 			|| ((DISTANCE_U1 / 2) > 10 && (DISTANCE_U1 / 2) <= 20)) {
 		TURN_POSITION = CLEAR;
 		CRITICAL_CLOSE = false;
@@ -385,7 +392,7 @@ void MEASSURE() {
 		MEDIUM = true;
 		RELATIVELY_FAR = false;
 
-	} else if (((DISTANCE_U2 / 2) > 20 && (DISTANCE_U2 / 2) <= 30)
+	} else if (((DISTANCE_U2 / 2) > MEDIUM_DISTANCE && (DISTANCE_U2 / 2) <= RELATIVELY_FAR_DISTANCE)
 			|| ((DISTANCE_U1 / 2) > 20 && (DISTANCE_U1 / 2) <= 30)) {
 		TURN_POSITION = CLEAR;
 		CRITICAL_CLOSE = false;
@@ -609,11 +616,19 @@ void EXECUTE_REMOTE_COMMAND() {
 		} else if (strncmp((char*) RxData, "LEFT", 4) == 0) {
 			TURN_90_LEFT(true);
 		}
+
+
 		memset(temp, 0, sizeof(temp));
 		general_log_message(RxData);
 		memset(RxData, 0, sizeof(RxData));
 		indx = 0;
 	}
+}
+
+void INIT_DISTANCES(){
+	CLOSE_DISTANCE = CRITICAL_CLOSE + 5;
+	MEDIUM_DISTANCE = CRITICAL_CLOSE + 15;
+	RELATIVELY_FAR_DISTANCE = CRITICAL_CLOSE + 25;
 }
 
 //void receive_string() {
@@ -661,9 +676,10 @@ int main(void) {
 	MX_USART1_UART_Init();
 	/* USER CODE BEGIN 2 */
 	general_log_message("_________ BOARD INIT _________");
+
 	SETUP_ADC();
 	UPDATE_DC();
-
+	INIT_DISTANCES();
 	INIT_TRIGG_ECHO();
 	INIT_3V_OUTPUT();
 	INIT_TIM4();
