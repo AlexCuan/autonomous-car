@@ -103,7 +103,7 @@ uint8_t CLOSE_DISTANCE;
 uint8_t MEDIUM_DISTANCE;
 uint8_t RELATIVELY_FAR_DISTANCE;
 bool ROTATING;
-
+bool DISTANCE_MESSAGE_FLAG;
 /* USER CODE END PV */
 
 /* Private function prototypes --------b---------------------------------------*/
@@ -147,7 +147,7 @@ void speed_log_message(void) {
 	HAL_UART_Transmit(&huart1, message, strlen(message), 10000);
 }
 
-void RESET_DISTANCES(){
+void RESET_DISTANCES() {
 	DISTANCE_U1 = 0;
 	DISTANCE_U2 = 0;
 }
@@ -248,9 +248,9 @@ void TURN_90_RIGHT(bool backwards) {
 	}
 
 	if (backwards) {
-		TURN_BACKWARDS(0, 100);
+		TURN_BACKWARDS(100, 0);
 	} else {
-		TURN_FORWARD(100, 0);
+		TURN_FORWARD(0, 100);
 	}
 
 	COUNT = 0;
@@ -282,10 +282,10 @@ void TURN_90_LEFT(bool backwards) {
 	}
 	if (backwards) {
 
-		TURN_BACKWARDS(100, 0);
+		TURN_BACKWARDS(0, 100);
 	} else {
 
-		TURN_FORWARD(0, 100);
+		TURN_FORWARD(100, 0);
 	}
 	COUNT = 0;
 	while (COUNT != 7) {
@@ -365,15 +365,15 @@ void BUZZ() {
 	}
 
 	else {
-		if (!ROTATING){
-		TIM4->CCMR2 = 0x0040;
-		if (MOVEMENT_DIRECTION == FORWARD) {
-			SET_SPEED(MAX_DC, MAX_DC);
+		if (!ROTATING) {
+			TIM4->CCMR2 = 0x0040;
+			if (MOVEMENT_DIRECTION == FORWARD) {
+				SET_SPEED(MAX_DC, MAX_DC);
 
-		} else if (MOVEMENT_DIRECTION == BACKWARDS) {
-			SET_SPEED(INVERTED_MAX_DC, INVERTED_MAX_DC);
+			} else if (MOVEMENT_DIRECTION == BACKWARDS) {
+				SET_SPEED(INVERTED_MAX_DC, INVERTED_MAX_DC);
 
-		}
+			}
 		}
 	}
 	TIM2->EGR |= 0x0001;
@@ -382,17 +382,19 @@ void BUZZ() {
 void MEASSURE() {
 
 	if (((DISTANCE_U1 / 2) <= CRITICAL_CLOSE_DISTANCE && DISTANCE_U1 != 0)
-			|| ((DISTANCE_U2 / 2) <= 5 && DISTANCE_U2 != 0)) {
+			|| ((DISTANCE_U2 / 2) <= CRITICAL_CLOSE_DISTANCE && DISTANCE_U2 != 0)) {
 		if (TURN_POSITION == CLEAR && MOVEMENT_DIRECTION != STOPPED) {
 			TURN_POSITION = FIRST_OBSTACLE_BACKWARDS;
 		}
+
 		CRITICAL_CLOSE = true;
 		CLOSE = false;
 		MEDIUM = false;
 		RELATIVELY_FAR = false;
 	} else if (((DISTANCE_U2 / 2) > CRITICAL_CLOSE_DISTANCE
 			&& (DISTANCE_U2 / 2) <= CLOSE_DISTANCE)
-			|| ((DISTANCE_U1 / 2) > 5 && (DISTANCE_U1 / 2) <= 10)) {
+			|| ((DISTANCE_U1 / 2) > CRITICAL_CLOSE_DISTANCE
+					&& (DISTANCE_U1 / 2) <= CLOSE_DISTANCE)) {
 		TURN_POSITION = CLEAR;
 		CRITICAL_CLOSE = false;
 		CLOSE = true;
@@ -401,7 +403,8 @@ void MEASSURE() {
 
 	} else if (((DISTANCE_U2 / 2) > CLOSE_DISTANCE
 			&& (DISTANCE_U2 / 2) <= MEDIUM_DISTANCE)
-			|| ((DISTANCE_U1 / 2) > 10 && (DISTANCE_U1 / 2) <= 20)) {
+			|| ((DISTANCE_U1 / 2) > CLOSE_DISTANCE
+					&& (DISTANCE_U1 / 2) <= MEDIUM_DISTANCE)) {
 		TURN_POSITION = CLEAR;
 		CRITICAL_CLOSE = false;
 		CLOSE = false;
@@ -410,7 +413,8 @@ void MEASSURE() {
 
 	} else if (((DISTANCE_U2 / 2) > MEDIUM_DISTANCE
 			&& (DISTANCE_U2 / 2) <= RELATIVELY_FAR_DISTANCE)
-			|| ((DISTANCE_U1 / 2) > 20 && (DISTANCE_U1 / 2) <= 30)) {
+			|| ((DISTANCE_U1 / 2) > MEDIUM_DISTANCE
+					&& (DISTANCE_U1 / 2) <= RELATIVELY_FAR_DISTANCE)) {
 		TURN_POSITION = CLEAR;
 		CRITICAL_CLOSE = false;
 		CLOSE = false;
@@ -424,6 +428,30 @@ void MEASSURE() {
 		MEDIUM = false;
 		RELATIVELY_FAR = false;
 	}
+
+	if (((DISTANCE_U1 / 2) <= 5 && DISTANCE_U1 != 0)
+			|| ((DISTANCE_U2 / 2) <= 5 && DISTANCE_U2 != 0)) {
+		if (!DISTANCE_MESSAGE_FLAG) {
+			char message[70];
+			sprintf(message, "WARNING!! OBSTACLE AT A DISTANCE OF LESS THAN 5 cm \r\n");
+			general_log_message(message);
+			DISTANCE_MESSAGE_FLAG = true;
+		}
+	} else if (((DISTANCE_U2 / 2) > 27
+			&& (DISTANCE_U2 / 2) <= 33)
+			|| ((DISTANCE_U1 / 2) > 27
+					&& (DISTANCE_U1 / 2) <= 33)) {
+		if (!DISTANCE_MESSAGE_FLAG) {
+			char message[70];
+			sprintf(message, "BE CAREFUL, OBSTACLE IN APPROXIMATELY 30 cm\r\n");
+			general_log_message(message);
+			DISTANCE_MESSAGE_FLAG = true;
+		}
+	}
+	else{
+		DISTANCE_MESSAGE_FLAG=false;
+	}
+
 }
 
 void START_COUNTER_3() {
@@ -601,8 +629,10 @@ void SETUP_ADC() {
 }
 
 void UPDATE_DC() {
+	uint8_t temp = MAX_DC;
 	MAX_DC = (ADC1->DR) * 100 / 4096;
 	INVERTED_MAX_DC = 100 - MAX_DC;
+
 	if (MOVEMENT_DIRECTION == FORWARD) {
 		TURN_FORWARD(MAX_DC, MAX_DC);
 	} else if (MOVEMENT_DIRECTION == BACKWARDS) {
@@ -612,12 +642,12 @@ void UPDATE_DC() {
 }
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
-	// Process the command
+// Process the command
 //	TURN_DIRECTION();
 	memcpy(RxData + indx, temp, 1);
 	if (++indx >= 10)
 		indx = 0;
-	// Reactivate reception for 4 characters
+// Reactivate reception for 4 characters
 	HAL_UART_Receive_IT(huart, temp, 1);
 }
 
@@ -630,15 +660,25 @@ void EXECUTE_REMOTE_COMMAND() {
 			STOP(true);
 		} else if (strncmp((char*) RxData, "CYCL", 4) == 0) {
 			TURN_DIRECTION();
-		} else if (strncmp((char*) RxData, "RIGH", 4) == 0) {
+		} else if (strncmp((char*) RxData, "RIGH", 4) == 0
+				&& MOVEMENT_DIRECTION == FORWARD) {
 			TURN_90_RIGHT(isBackward);
-		} else if (strncmp((char*) RxData, "LEFT", 4) == 0) {
+		} else if (strncmp((char*) RxData, "RIGH", 4) == 0
+				&& MOVEMENT_DIRECTION == BACKWARDS) {
 			TURN_90_LEFT(isBackward);
+		} else if (strncmp((char*) RxData, "LEFT", 4) == 0
+				&& MOVEMENT_DIRECTION == FORWARD) {
+			TURN_90_LEFT(isBackward);
+		} else if (strncmp((char*) RxData, "LEFT", 4) == 0
+				&& MOVEMENT_DIRECTION == BACKWARDS) {
+			TURN_90_RIGHT(isBackward);
 		} else if (strncmp((char*) RxData, "FORW", 4) == 0) {
 			TURN_FORWARD(MAX_DC, MAX_DC);
+			general_log_message("Going Forward");
 		} else if (strncmp((char*) RxData, "BACK", 4) == 0) {
 			TURN_BACKWARDS(INVERTED_MAX_DC, INVERTED_MAX_DC);
-		} else if (strncmp((char*) RxData, "MD", 2) == 0 && isdigit(RxData[2])
+			general_log_message("Going Backwards");
+		} else if (strncmp((char*) RxData, "MD", 2) == 0&& isdigit(RxData[2])
 		&& isdigit(RxData[3])) {
 			uint8_t new_distance = atoi((char*) &RxData[2]);
 			CHANGE_MIN_DISTANCE(new_distance);

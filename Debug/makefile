@@ -60,8 +60,8 @@ all: main-build
 main-build: wheel_speed_test.elf secondary-outputs
 
 # Tool invocations
-wheel_speed_test.elf wheel_speed_test.map: $(OBJS) $(USER_OBJS) /home/alex/STM32CubeIDE/workspace_v3/wheel_speed_test/STM32L152RBTX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "wheel_speed_test.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m3 -T"/home/alex/STM32CubeIDE/workspace_v3/wheel_speed_test/STM32L152RBTX_FLASH.ld" --specs=nosys.specs -Wl,-Map="wheel_speed_test.map" -Wl,--gc-sections -static --specs=nano.specs -mfloat-abi=soft -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+wheel_speed_test.elf wheel_speed_test.map: $(OBJS) $(USER_OBJS) /home/alex/STM32CubeIDE/autonomous-car/STM32L152RBTX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-gcc -o "wheel_speed_test.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m3 -T"/home/alex/STM32CubeIDE/autonomous-car/STM32L152RBTX_FLASH.ld" --specs=nosys.specs -Wl,-Map="wheel_speed_test.map" -Wl,--gc-sections -static --specs=nano.specs -mfloat-abi=soft -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 
