@@ -66,6 +66,8 @@ This project was developed as part of the Microprocessor Based Digital Systems c
 
 *Note: Motor driver power (12V screw terminal) comes directly from the battery pack. Ensure common ground.*
 
+![report schema](https://github.com/user-attachments/assets/1ae8dac3-c97f-4cf9-b213-01547d9dcd44)
+
 ## Usage
 
 1.  **Compile & Flash:** Open the project in STM32CubeIDE, build it, and flash the code onto the STM32 board.
