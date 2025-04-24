@@ -26,6 +26,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <stdint.h>
+#include <stdlib.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -77,8 +78,7 @@ bool CRITICAL_CLOSE;
 bool CLOSE;
 bool MEDIUM;
 bool RELATIVELY_FAR;
-// TODO: remove STATE
-bool STATE;
+
 
 enum direction {
 	FORWARD, BACKWARDS, STOPPED
@@ -629,7 +629,6 @@ void SETUP_ADC() {
 }
 
 void UPDATE_DC() {
-	uint8_t temp = MAX_DC;
 	MAX_DC = (ADC1->DR) * 100 / 4096;
 	INVERTED_MAX_DC = 100 - MAX_DC;
 
@@ -649,6 +648,28 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 		indx = 0;
 // Reactivate reception for 4 characters
 	HAL_UART_Receive_IT(huart, temp, 1);
+}
+
+void CHANGE_MIN_DISTANCE(uint8_t new_distance) {
+	if (new_distance > 0 && new_distance <= 99) {
+		CRITICAL_CLOSE_DISTANCE = new_distance;
+	}
+
+	char message[100];
+	sprintf(message, "[%lu] Changing new minimun distance to: %d cm \r\n",
+			HAL_GetTick(), new_distance);
+	HAL_UART_Transmit(&huart1, message, strlen(message), 10000);
+}
+
+void CHANGE_MAX_DISTANCE(uint8_t new_distance) {
+	if (new_distance > 0 && new_distance <= 99) {
+		RELATIVELY_FAR_DISTANCE = new_distance;
+
+		char message[100];
+		sprintf(message, "[%lu] Changing new maximum distance to: %d cm \r\n",
+				HAL_GetTick(), new_distance);
+		HAL_UART_Transmit(&huart1, message, strlen(message), 10000);
+	}
 }
 
 void EXECUTE_REMOTE_COMMAND() {
@@ -702,27 +723,9 @@ void INIT_DISTANCES() {
 	RELATIVELY_FAR_DISTANCE = CRITICAL_CLOSE + 25;
 }
 
-void CHANGE_MIN_DISTANCE(uint8_t new_distance) {
-	if (new_distance > 0 && new_distance <= 99) {
-		CRITICAL_CLOSE_DISTANCE = new_distance;
-	}
 
-	char message[100];
-	sprintf(message, "[%lu] Changing new minimun distance to: %d cm \r\n",
-			HAL_GetTick(), new_distance);
-	HAL_UART_Transmit(&huart1, message, strlen(message), 10000);
-}
 
-void CHANGE_MAX_DISTANCE(uint8_t new_distance) {
-	if (new_distance > 0 && new_distance <= 99) {
-		RELATIVELY_FAR_DISTANCE = new_distance;
 
-		char message[100];
-		sprintf(message, "[%lu] Changing new maximum distance to: %d cm \r\n",
-				HAL_GetTick(), new_distance);
-		HAL_UART_Transmit(&huart1, message, strlen(message), 10000);
-	}
-}
 
 //void receive_string() {
 //    uint8_t received_byte;  // Extra byte for NULL terminator
